@@ -11,12 +11,14 @@
     German Tools - 創作支援ツール
   </header>
   <div id="side_bar">
-    <! --- サイドバー --->
+    <button onclick="generate()">再生成</button>
+    <button onclick="downloadMap()">ダウンロード</button>
   </div>
-  <main>
+  <main><canvas id="map" width="512" height="512"></canvas>
   </main>
   <footer>
     <! --- フッター --->
   </footer>
+<script src="map_gen_core.js"></script>
 </body>
 </html>
