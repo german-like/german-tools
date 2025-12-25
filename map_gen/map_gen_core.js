@@ -1,10 +1,10 @@
 // =====================
-// シード付きハッシュノイズ
+// ハッシュノイズ
 // =====================
 function hash(x, y, seed) {
   let h = x * 374761393 + y * 668265263 + seed * 1442695041;
   h = (h ^ (h >> 13)) * 1274126177;
-  return ((h ^ (h >> 16)) >>> 0) / 0xffffffff;
+  return ((h ^ (h >> 16)) >>> 0) / 4294967295;
 }
 
 // =====================
@@ -16,9 +16,9 @@ function smoothNoise(x, y, seed) {
   const xf = x - xi;
   const yf = y - yi;
 
-  const n00 = hash(xi,     yi,     seed);
-  const n10 = hash(xi + 1, yi,     seed);
-  const n01 = hash(xi,     yi + 1, seed);
+  const n00 = hash(xi, yi, seed);
+  const n10 = hash(xi + 1, yi, seed);
+  const n01 = hash(xi, yi + 1, seed);
   const n11 = hash(xi + 1, yi + 1, seed);
 
   const u = xf * xf * (3 - 2 * xf);
@@ -31,7 +31,7 @@ function smoothNoise(x, y, seed) {
 }
 
 // =====================
-// FBM（多段ノイズ）
+// FBM
 // =====================
 function fbm(x, y, seed) {
   let value = 0;
@@ -64,24 +64,19 @@ function generateTerrain(seed) {
       const ny = y / H - 0.5;
       const d = Math.sqrt(nx * nx + ny * ny);
 
-      // 大陸マスク
       const continent = Math.max(0, 1 - d * 1.8);
-
-      // ノイズ地形
       const n = fbm(x * 0.01, y * 0.01, seed);
 
       const h = continent + n * 0.8 - 0.4;
       const i = (y * W + x) * 4;
 
       if (h <= 0) {
-        // 海
         img.data[i]     = 30;
         img.data[i + 1] = 80;
         img.data[i + 2] = 160;
       } else {
-        // 陸
-        img.data[i]     = 60 + h * 80;
-        img.data[i + 1] = 140 + h * 50;
+        img.data[i]     = 60 + h * 90;
+        img.data[i + 1] = 140 + h * 60;
         img.data[i + 2] = 60;
       }
 
@@ -91,3 +86,14 @@ function generateTerrain(seed) {
 
   ctx.putImageData(img, 0, 0);
 }
+
+// =====================
+// ボタン用
+// =====================
+function run() {
+  const seed = parseInt(document.getElementById("seed").value, 10);
+  generateTerrain(seed);
+}
+
+// 初期表示
+run();
