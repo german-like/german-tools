@@ -1,146 +1,162 @@
-// =====================
-// ハッシュノイズ
-// =====================
-function hash(x, y, seed) {
-  let h = x * 374761393 + y * 668265263 + seed * 1442695041;
-  h = (h ^ (h >> 13)) * 1274126177;
-  return ((h ^ (h >> 16)) >>> 0) / 4294967295;
-}
-
-// =====================
-// スムーズノイズ（ループ対応版）
-// =====================
-function smoothNoise(x, y, seed, periodX) {
-  const xi = Math.floor(x);
-  const yi = Math.floor(y);
-  const xf = x - xi;
-  const yf = y - yi;
-
-  const nextX = (xi + 1) % periodX;
-  const currX = xi % periodX;
-
-  const n00 = hash(currX, yi, seed);
-  const n10 = hash(nextX, yi, seed);
-  const n01 = hash(currX, yi + 1, seed);
-  const n11 = hash(nextX, yi + 1, seed);
-
-  const u = xf * xf * (3 - 2 * xf);
-  const v = yf * yf * (3 - 2 * yf);
-
-  const x1 = n00 * (1 - u) + n10 * u;
-  const x2 = n01 * (1 - u) + n11 * u;
-
-  return x1 * (1 - v) + x2 * v;
-}
-
-// =====================
-// FBM（うねりを抑えた標準的なフラクタル）
-// =====================
-function fbm(x, y, seed, baseFreqX) {
-  let value = 0;
-  let amp = 0.35;
-  let freq = 1.0;
-  const persistence = 0.5; 
-  const lacunarity = 2.0;
-
-  for (let i = 0; i < 9; i++) {
-    const pX = Math.max(1, Math.round(baseFreqX * freq));
-    // リッジド処理（Math.abs）をあえて使わず、素直なスムーズノイズにする
-    let signal = smoothNoise(x * freq, y * freq, seed + i * 1000, pX);
-    
-    value += signal * amp;
-    amp *= persistence;
-    freq *= lacunarity;
+/* =========================
+   乱数（シード対応）
+========================= */
+class RNG {
+  constructor(seed) {
+    this.seed = seed >>> 0;
   }
-  return value;
+  next() {
+    this.seed = (this.seed * 1664525 + 1013904223) >>> 0;
+    return this.seed / 0xffffffff;
+  }
 }
 
-// =====================
-// 地形生成
-// =====================
-let currentSeaLevel = 0.35;
+/* =========================
+   断層流動マップ生成
+========================= */
+class FaultMapGenerator {
+  constructor(width, height, rng) {
+    this.width = width;
+    this.height = height;
+    this.rng = rng;
+    this.map = Array.from({ length: height }, () =>
+      new Float32Array(width).fill(0)
+    );
+  }
 
-// スライダーの動作を設定
-document.getElementById("seaLevel").addEventListener("input", (e) => {
-  let val = parseFloat(e.target.value);
-  
-  currentSeaLevel = val;
-  
-  document.getElementById("levelValue").innerText = currentSeaLevel.toFixed(2);
-});
+  applyFault(displacement) {
+    const x1 = this.rng.next() * this.width;
+    const y1 = this.rng.next() * this.height;
+    const angle = this.rng.next() * Math.PI * 2;
 
-function generateTerrain(seed) {
-  const canvas = document.getElementById("map");
-  if (!canvas) return; // キャンバスがない場合のエラー回避
-  const ctx = canvas.getContext("2d");
-  const W = canvas.width;
-  const H = canvas.height;
-  const img = ctx.createImageData(W, H);
+    const nx = Math.cos(angle);
+    const ny = Math.sin(angle);
 
-  const scaleX = 5; 
-  const scaleY = 5;
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        const side = (x - x1) * nx + (y - y1) * ny;
+        this.map[y][x] += side > 0 ? displacement : -displacement;
+      }
+    }
+  }
 
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      const nx = x / W;
-      const ny = y / H;
+  generate(iterations = 300, initialDisplacement = 1.0) {
+    let d = initialDisplacement;
+    for (let i = 0; i < iterations; i++) {
+      this.applyFault(d);
+      d *= 0.995;
+    }
+    this.normalize();
+    this.smooth(2);
+  }
 
-      // n はだいたい 0.2 〜 0.8 くらいに分布します
-      const n = fbm(nx * scaleX, ny * scaleY, seed, scaleX);
+  normalize() {
+    let min = Infinity, max = -Infinity;
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        const v = this.map[y][x];
+        if (v < min) min = v;
+        if (v > max) max = v;
+      }
+    }
+    const range = max - min || 1;
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        this.map[y][x] = (this.map[y][x] - min) / range;
+      }
+    }
+  }
 
-      // 海水面の基準を n の分布に合わせる（少し調整）
-      // n をそのまま使うより、少し増幅させると陸地がはっきりします
-      const h = (n * 1.2) - currentSeaLevel; 
-      
-      const i = (y * W + x) * 4;
+  smooth(iterations) {
+    for (let i = 0; i < iterations; i++) {
+      const newMap = Array.from({ length: this.height }, () =>
+        new Float32Array(this.width)
+      );
 
-      if (h <= 0) {
-        // 海（少し深く、暗めに）
-        img.data[i]     = 20;
-        img.data[i + 1] = 50;
-        img.data[i + 2] = 120;
-      } else {
-        // 陸地
-        // hが小さいほど海岸（砂浜っぽく）、大きいほど山
-        if (h > 0.5) { 
-          // 雪山
-          img.data[i] = 255; img.data[i + 1] = 255; img.data[i + 2] = 255;
-        } else {
-          // 森
-          const brightness = h * 120;
-          img.data[i]     = 40 + brightness;
-          img.data[i + 1] = 120 + brightness;
-          img.data[i + 2] = 40;
+      for (let y = 0; y < this.height; y++) {
+        for (let x = 0; x < this.width; x++) {
+          let sum = 0, count = 0;
+          for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+              const ny = y + dy;
+              const nx = x + dx;
+              if (nx >= 0 && nx < this.width && ny >= 0 && ny < this.height) {
+                sum += this.map[ny][nx];
+                count++;
+              }
+            }
+          }
+          newMap[y][x] = sum / count;
         }
       }
+      this.map = newMap;
+    }
+  }
+}
+
+/* =========================
+   描画・UI連携
+========================= */
+const canvas = document.getElementById("map");
+const ctx = canvas.getContext("2d");
+
+function run() {
+  const seedValue = parseInt(document.getElementById("seed").value);
+  const seaLevel = parseFloat(document.getElementById("seaLevel").value);
+
+  const rng = new RNG(seedValue);
+  const gen = new FaultMapGenerator(canvas.width, canvas.height, rng);
+  gen.generate(350, 1.0);
+
+  drawMap(gen.map, seaLevel);
+}
+
+function randomizeAndRun() {
+  const seed = Math.floor(Math.random() * 1e9);
+  document.getElementById("seed").value = seed;
+  run();
+}
+
+function drawMap(map, seaLevel) {
+  const img = ctx.createImageData(canvas.width, canvas.height);
+
+  for (let y = 0; y < canvas.height; y++) {
+    for (let x = 0; x < canvas.width; x++) {
+      const h = map[y][x];
+      const i = (y * canvas.width + x) * 4;
+
+      let r, g, b;
+
+      if (h < seaLevel) {
+        // 海
+        const d = h / seaLevel;
+        r = 20;
+        g = 60 + d * 80;
+        b = 120 + d * 100;
+      } else {
+        // 陸
+        const e = (h - seaLevel) / (1 - seaLevel);
+        r = 40 + e * 120;
+        g = 120 + e * 100;
+        b = 40 + e * 60;
+      }
+
+      img.data[i]     = r;
+      img.data[i + 1] = g;
+      img.data[i + 2] = b;
       img.data[i + 3] = 255;
     }
   }
+
   ctx.putImageData(img, 0, 0);
 }
 
-// =====================
-// シードをランダムに生成して描画
-// =====================
-function randomizeAndRun() {
-  // 0 から 999999 の間でランダムな整数を作る
-  const randomSeed = Math.floor(Math.random() * 1000000);
-  
-  // HTMLの入力欄にその数字を表示させる
-  const seedInput = document.getElementById("seed");
-  if (seedInput) {
-    seedInput.value = randomSeed;
-  }
-  
-  // 地形を生成
-  generateTerrain(randomSeed);
+function downloadMap() {
+  const link = document.createElement("a");
+  link.download = "fault_map.png";
+  link.href = canvas.toDataURL("image/png");
+  link.click();
 }
 
-// 既存の run 関数も、入力欄の数字を読み取って動くようにしておく
-function run() {
-  const seedInput = document.getElementById("seed");
-  const seed = seedInput ? parseInt(seedInput.value, 10) : 12345;
-  generateTerrain(seed);
-}
-
+/* 初回自動生成 */
 run();
