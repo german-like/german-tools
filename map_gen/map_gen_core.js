@@ -34,24 +34,20 @@ function smoothNoise(x, y, seed, periodX) {
 }
 
 // =====================
-// FBM（リッジド・フラクタル対応）
+// FBM（うねりを抑えた標準的なフラクタル）
 // =====================
 function fbm(x, y, seed, baseFreqX) {
   let value = 0;
-  let amp = 1.0;
+  let amp = 0.5; // 初期振幅を少し抑える
   let freq = 1.0;
-  // 未定義だった変数を追加
   const persistence = 0.5; 
   const lacunarity = 2.0;
 
   for (let i = 0; i < 9; i++) {
     const pX = Math.max(1, Math.round(baseFreqX * freq));
+    // リッジド処理（Math.abs）をあえて使わず、素直なスムーズノイズにする
     let signal = smoothNoise(x * freq, y * freq, seed + i * 1000, pX);
     
-    // リッジド（鋭い山脈）処理
-    signal = 1.0 - Math.abs(signal * 2.0 - 1.0);
-    signal *= signal; 
-
     value += signal * amp;
     amp *= persistence;
     freq *= lacunarity;
@@ -60,7 +56,7 @@ function fbm(x, y, seed, baseFreqX) {
 }
 
 // =====================
-// 地形生成
+// 地形生成（ドメイン・ワーピングを削除）
 // =====================
 function generateTerrain(seed) {
   const canvas = document.getElementById("map");
@@ -69,45 +65,39 @@ function generateTerrain(seed) {
   const H = canvas.height;
   const img = ctx.createImageData(W, H);
 
-  const scaleX = 4; // ここの値を調整すると大陸の大きさが変わる
-  const scaleY = 4;
+  const scaleX = 5; 
+  const scaleY = 5;
 
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const nx = x / W;
       const ny = y / H;
 
-      // --- ドメイン・ワーピング（フラクタルな歪み） ---
-      // 座標自体をノイズでゆがませることで、より自然な海岸線になります
-      const qx = fbm(nx * scaleX + 1.1, ny * scaleY + 1.1, seed + 10, scaleX);
-      const qy = fbm(nx * scaleX + 3.3, ny * scaleY + 3.3, seed + 20, scaleX);
-      
-      // ゆがんだ座標を使って最終的な高さを計算
-      const n = fbm((nx + qx * 0.1) * scaleX, (ny + qy * 0.1) * scaleY, seed, scaleX);
+      // 【修正ポイント】qx, qy による座標のずらし（うねり）を完全に消去
+      // 直接 nx, ny を使って計算します
+      const n = fbm(nx * scaleX, ny * scaleY, seed, scaleX);
 
-      const h = n - 0.45; // 0.4～0.6あたりで陸地の量を調整
+      // 高さを調整（0.5が標準的な海面）
+      const h = n - 0.5; 
       const i = (y * W + x) * 4;
 
       if (h <= 0) {
-        // 海：深さによって青の濃さを変える
-        const depth = Math.max(0, 1 + h * 2); 
-        img.data[i]     = 20;
-        img.data[i + 1] = 30 + depth * 50;
-        img.data[i + 2] = 100 + depth * 60;
+        // 海
+        img.data[i]     = 30;
+        img.data[i + 1] = 70;
+        img.data[i + 2] = 150;
       } else {
         // 陸地
-        const brightness = h * 150;
-        if (h > 0.5) {
-          // 雪山
-          const snow = (h - 0.5) * 200;
-          img.data[i]     = 200 + snow;
-          img.data[i + 1] = 200 + snow;
-          img.data[i + 2] = 220 + snow;
-        } else {
-          // 森・草原
-          img.data[i]     = 40 + brightness;
-          img.data[i + 1] = 100 + brightness * 0.5;
-          img.data[i + 2] = 30;
+        const brightness = h * 100;
+        img.data[i]     = 50 + brightness;
+        img.data[i + 1] = 150 + brightness;
+        img.data[i + 2] = 50;
+        
+        // 山頂（雪）
+        if (h > 0.3) {
+            img.data[i] = 240;
+            img.data[i + 1] = 240;
+            img.data[i + 2] = 250;
         }
       }
       img.data[i + 3] = 255;
