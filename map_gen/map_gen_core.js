@@ -1,5 +1,5 @@
 /* =========================
-   乱数（シード対応）
+   RNG（シード対応）
 ========================= */
 class RNG {
   constructor(seed) {
@@ -12,7 +12,8 @@ class RNG {
 }
 
 /* =========================
-   断層流動マップ生成
+   断層地形ジェネレーター
+   （ノイズ一切なし）
 ========================= */
 class FaultMapGenerator {
   constructor(width, height, rng) {
@@ -24,32 +25,81 @@ class FaultMapGenerator {
     );
   }
 
-  applyFault(displacement) {
-    const x1 = this.rng.next() * this.width;
-    const y1 = this.rng.next() * this.height;
+  /* ---- 曲線・曲面断層 ---- */
+  applyFaultCurved(displacement) {
+    const cx = this.rng.next() * this.width;
+    const cy = this.rng.next() * this.height;
     const angle = this.rng.next() * Math.PI * 2;
 
-    const nx = Math.cos(angle);
-    const ny = Math.sin(angle);
+    const dx = Math.cos(angle);
+    const dy = Math.sin(angle);
+
+    const width = 40 + this.rng.next() * 80;
+    const bendFreq = 80 + this.rng.next() * 120;
+    const bendAmp = 20 + this.rng.next() * 40;
 
     for (let y = 0; y < this.height; y++) {
       for (let x = 0; x < this.width; x++) {
-        const side = (x - x1) * nx + (y - y1) * ny;
-        this.map[y][x] += side > 0 ? displacement : -displacement;
+        const px = x - cx;
+        const py = y - cy;
+
+        const along = px * dx + py * dy;
+        const bend = Math.sin(along / bendFreq) * bendAmp;
+        const dist = px * dy - py * dx + bend;
+
+        const influence = Math.tanh(dist / width);
+        this.map[y][x] += influence * displacement;
       }
     }
   }
 
-  generate(iterations = 300, initialDisplacement = 1.0) {
-    let d = initialDisplacement;
-    for (let i = 0; i < iterations; i++) {
-      this.applyFault(d);
-      d *= 0.995;
+  /* ---- 大陸核（ドーム断層） ---- */
+  applyFaultDome(displacement) {
+    const cx = this.rng.next() * this.width;
+    const cy = this.rng.next() * this.height;
+    const radius = 200 + this.rng.next() * 400;
+
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        const dx = x - cx;
+        const dy = y - cy;
+        const r = Math.sqrt(dx * dx + dy * dy);
+
+        if (r < radius) {
+          const influence =
+            Math.cos((r / radius) * Math.PI) * 0.5 + 0.5;
+          this.map[y][x] += influence * displacement;
+        }
+      }
     }
-    this.normalize();
-    this.smooth(2);
   }
 
+  /* ---- 生成 ---- */
+  generate(iterations = 320) {
+    let d = 1.0;
+
+    // 大陸の骨格
+    for (let i = 0; i < iterations * 0.2; i++) {
+      this.applyFaultDome(d * 2.5);
+    }
+
+    // プレート境界・山脈
+    for (let i = 0; i < iterations * 0.6; i++) {
+      this.applyFaultCurved(d);
+      d *= 0.997;
+    }
+
+    // 細部
+    for (let i = 0; i < iterations * 0.2; i++) {
+      this.applyFaultCurved(d * 0.5);
+      d *= 0.995;
+    }
+
+    this.normalize();
+    this.smooth(1);
+  }
+
+  /* ---- 正規化 ---- */
   normalize() {
     let min = Infinity, max = -Infinity;
     for (let y = 0; y < this.height; y++) {
@@ -67,6 +117,7 @@ class FaultMapGenerator {
     }
   }
 
+  /* ---- 平滑化 ---- */
   smooth(iterations) {
     for (let i = 0; i < iterations; i++) {
       const newMap = Array.from({ length: this.height }, () =>
@@ -80,7 +131,10 @@ class FaultMapGenerator {
             for (let dx = -1; dx <= 1; dx++) {
               const ny = y + dy;
               const nx = x + dx;
-              if (nx >= 0 && nx < this.width && ny >= 0 && ny < this.height) {
+              if (
+                nx >= 0 && nx < this.width &&
+                ny >= 0 && ny < this.height
+              ) {
                 sum += this.map[ny][nx];
                 count++;
               }
@@ -106,7 +160,7 @@ function run() {
 
   const rng = new RNG(seedValue);
   const gen = new FaultMapGenerator(canvas.width, canvas.height, rng);
-  gen.generate(350, 1.0);
+  gen.generate(320);
 
   drawMap(gen.map, seaLevel);
 }
@@ -128,17 +182,15 @@ function drawMap(map, seaLevel) {
       let r, g, b;
 
       if (h < seaLevel) {
-        // 海
         const d = h / seaLevel;
         r = 20;
         g = 60 + d * 80;
         b = 120 + d * 100;
       } else {
-        // 陸
         const e = (h - seaLevel) / (1 - seaLevel);
-        r = 40 + e * 120;
+        r = 50 + e * 130;
         g = 120 + e * 100;
-        b = 40 + e * 60;
+        b = 60 + e * 60;
       }
 
       img.data[i]     = r;
@@ -153,10 +205,10 @@ function drawMap(map, seaLevel) {
 
 function downloadMap() {
   const link = document.createElement("a");
-  link.download = "fault_map.png";
+  link.download = "fault_world.png";
   link.href = canvas.toDataURL("image/png");
   link.click();
 }
 
-/* 初回自動生成 */
+/* 初回生成 */
 run();
