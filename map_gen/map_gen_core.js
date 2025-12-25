@@ -38,7 +38,7 @@ function smoothNoise(x, y, seed, periodX) {
 // =====================
 function fbm(x, y, seed, baseFreqX) {
   let value = 0;
-  let amp = 1.0; // 0.5 から 1.0 に戻す
+  let amp = 0.35;
   let freq = 1.0;
   const persistence = 0.5; 
   const lacunarity = 2.0;
@@ -68,7 +68,6 @@ document.getElementById("seaLevel").addEventListener("input", (e) => {
   currentSeaLevel = Math.round(val * 20) / 20;
   
   document.getElementById("levelValue").innerText = currentSeaLevel.toFixed(2);
-  run(); // 再描画
 });
 
 function generateTerrain(seed) {
