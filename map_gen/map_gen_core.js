@@ -73,12 +73,11 @@ function generateTerrain(seed) {
       const nx = x / W;
       const ny = y / H;
 
-      // 【修正ポイント】qx, qy による座標のずらし（うねり）を完全に消去
       // 直接 nx, ny を使って計算します
       const n = fbm(nx * scaleX, ny * scaleY, seed, scaleX);
 
       // 高さを調整（0.5が標準的な海面）
-      const h = n - 0.5; 
+      const h = n - 0.35; 
       const i = (y * W + x) * 4;
 
       if (h <= 0) {
