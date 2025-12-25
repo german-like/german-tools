@@ -102,10 +102,7 @@ function generateTerrain(seed) {
       } else {
         // 陸地
         // hが小さいほど海岸（砂浜っぽく）、大きいほど山
-        if (h < 0.05) { 
-          // 砂浜
-          img.data[i] = 220; img.data[i + 1] = 200; img.data[i + 2] = 150;
-        } else if (h > 0.4) { 
+        if (h > 0.5) { 
           // 雪山
           img.data[i] = 255; img.data[i + 1] = 255; img.data[i + 2] = 255;
         } else {
