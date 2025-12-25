@@ -1,5 +1,5 @@
 /* =========================
-   乱数（シード対応）
+   RNG（シード対応）
 ========================= */
 class RNG {
   constructor(seed) {
@@ -12,7 +12,8 @@ class RNG {
 }
 
 /* =========================
-   断層流動マップ生成
+   断層地形ジェネレーター
+   （ノイズ一切なし・シャープ）
 ========================= */
 class FaultMapGenerator {
   constructor(width, height, rng) {
@@ -24,7 +25,8 @@ class FaultMapGenerator {
     );
   }
 
-  applyFault(displacement) {
+  /* ---- 曲線・曲面断層（シャープ） ---- */
+  applyFaultCurved(displacement) {
     const cx = this.rng.next() * this.width;
     const cy = this.rng.next() * this.height;
     const angle = this.rng.next() * Math.PI * 2;
@@ -32,34 +34,81 @@ class FaultMapGenerator {
     const dx = Math.cos(angle);
     const dy = Math.sin(angle);
 
-    // 曲面の幅（大きいほどなだらか）
-    const width = 30 + this.rng.next() * 60;
+    const width = 20 + this.rng.next() * 40;
+    const bendFreq = 80 + this.rng.next() * 120;
+    const bendAmp = 10 + this.rng.next() * 25;
 
     for (let y = 0; y < this.height; y++) {
       for (let x = 0; x < this.width; x++) {
-        // 断層中心線からの符号付き距離
         const px = x - cx;
         const py = y - cy;
-        const dist = px * dy - py * dx;
 
-        // S字カーブ（滑らかな断面）
-        const influence = Math.tanh(dist / width);
+        const along = px * dx + py * dy;
+        const bend = Math.sin(along / bendFreq) * bendAmp;
+        const dist = px * dy - py * dx + bend;
+
+        // シャープな断面（S字を排除）
+        const influence =
+          Math.sign(dist) *
+          (1 - Math.exp(-Math.abs(dist) / (width * 0.35)));
 
         this.map[y][x] += influence * displacement;
+
+        // プレート境界強調
+        if (Math.abs(dist) < width * 0.15) {
+          this.map[y][x] += Math.sign(dist) * displacement * 0.4;
+        }
       }
     }
   }
-   
-  generate(iterations = 300, initialDisplacement = 1.0) {
-    let d = initialDisplacement;
-    for (let i = 0; i < iterations; i++) {
-      this.applyFault(d);
-      d *= 0.995;
+
+  /* ---- 大陸核（控えめドーム） ---- */
+  applyFaultDome(displacement) {
+    const cx = this.rng.next() * this.width;
+    const cy = this.rng.next() * this.height;
+    const radius = 180 + this.rng.next() * 300;
+
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        const dx = x - cx;
+        const dy = y - cy;
+        const r = Math.sqrt(dx * dx + dy * dy);
+
+        if (r < radius) {
+          const influence =
+            Math.cos((r / radius) * Math.PI) * 0.5 + 0.5;
+          this.map[y][x] += influence * displacement;
+        }
+      }
     }
-    this.normalize();
-    this.smooth(2);
   }
 
+  /* ---- 生成 ---- */
+  generate(iterations = 320) {
+    let d = 1.0;
+
+    // 大陸の骨格（少なめ）
+    for (let i = 0; i < iterations * 0.08; i++) {
+      this.applyFaultDome(d * 1.4);
+    }
+
+    // プレート境界・山脈
+    for (let i = 0; i < iterations * 0.65; i++) {
+      this.applyFaultCurved(d);
+      d *= 0.997;
+    }
+
+    // 細部
+    for (let i = 0; i < iterations * 0.27; i++) {
+      this.applyFaultCurved(d * 0.5);
+      d *= 0.995;
+    }
+
+    this.normalize();
+    // 平滑化は行わない（シャープ優先）
+  }
+
+  /* ---- 正規化 ---- */
   normalize() {
     let min = Infinity, max = -Infinity;
     for (let y = 0; y < this.height; y++) {
@@ -76,32 +125,6 @@ class FaultMapGenerator {
       }
     }
   }
-
-  smooth(iterations) {
-    for (let i = 0; i < iterations; i++) {
-      const newMap = Array.from({ length: this.height }, () =>
-        new Float32Array(this.width)
-      );
-
-      for (let y = 0; y < this.height; y++) {
-        for (let x = 0; x < this.width; x++) {
-          let sum = 0, count = 0;
-          for (let dy = -1; dy <= 1; dy++) {
-            for (let dx = -1; dx <= 1; dx++) {
-              const ny = y + dy;
-              const nx = x + dx;
-              if (nx >= 0 && nx < this.width && ny >= 0 && ny < this.height) {
-                sum += this.map[ny][nx];
-                count++;
-              }
-            }
-          }
-          newMap[y][x] = sum / count;
-        }
-      }
-      this.map = newMap;
-    }
-  }
 }
 
 /* =========================
@@ -116,7 +139,7 @@ function run() {
 
   const rng = new RNG(seedValue);
   const gen = new FaultMapGenerator(canvas.width, canvas.height, rng);
-  gen.generate(350, 1.0);
+  gen.generate(320);
 
   drawMap(gen.map, seaLevel);
 }
@@ -138,17 +161,15 @@ function drawMap(map, seaLevel) {
       let r, g, b;
 
       if (h < seaLevel) {
-        // 海
         const d = h / seaLevel;
-        r = 20;
-        g = 60 + d * 80;
-        b = 120 + d * 100;
+        r = 15;
+        g = 50 + d * 70;
+        b = 110 + d * 110;
       } else {
-        // 陸
         const e = (h - seaLevel) / (1 - seaLevel);
-        r = 40 + e * 120;
+        r = 60 + e * 140;
         g = 120 + e * 100;
-        b = 40 + e * 60;
+        b = 60 + e * 50;
       }
 
       img.data[i]     = r;
@@ -163,10 +184,10 @@ function drawMap(map, seaLevel) {
 
 function downloadMap() {
   const link = document.createElement("a");
-  link.download = "fault_map.png";
+  link.download = "fault_world.png";
   link.href = canvas.toDataURL("image/png");
   link.click();
 }
 
-/* 初回自動生成 */
+/* 初回生成 */
 run();
