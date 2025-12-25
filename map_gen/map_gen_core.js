@@ -16,12 +16,11 @@ function smoothNoise(x, y, seed, periodX) {
   const xf = x - xi;
   const yf = y - yi;
 
-  // X軸方向にだけループするように、次の座標(xi + 1)を「幅(periodX)」で割った余りにする
   const nextX = (xi + 1) % periodX;
   const currX = xi % periodX;
 
   const n00 = hash(currX, yi, seed);
-  const n10 = hash(nextX, yi, seed); // 右隣が左端に繋がる
+  const n10 = hash(nextX, yi, seed);
   const n01 = hash(currX, yi + 1, seed);
   const n11 = hash(nextX, yi + 1, seed);
 
@@ -35,24 +34,25 @@ function smoothNoise(x, y, seed, periodX) {
 }
 
 // =====================
-// FBM（ループ対応版）
+// FBM（リッジド・フラクタル対応）
 // =====================
 function fbm(x, y, seed, baseFreqX) {
   let value = 0;
-  let amp = 1;
-  let freq = 1;
+  let amp = 1.0;
+  let freq = 1.0;
+  // 未定義だった変数を追加
+  const persistence = 0.5; 
+  const lacunarity = 2.0;
 
   for (let i = 0; i < 9; i++) {
-    // 周期（periodX）は、基準となる周波数に合わせた整数値にする
     const pX = Math.max(1, Math.round(baseFreqX * freq));
-
     let signal = smoothNoise(x * freq, y * freq, seed + i * 1000, pX);
     
+    // リッジド（鋭い山脈）処理
     signal = 1.0 - Math.abs(signal * 2.0 - 1.0);
-    signal *= signal; // 鋭さを強調
+    signal *= signal; 
 
     value += signal * amp;
-    
     amp *= persistence;
     freq *= lacunarity;
   }
@@ -60,7 +60,7 @@ function fbm(x, y, seed, baseFreqX) {
 }
 
 // =====================
-// 地形生成（呼び出し側の修正）
+// 地形生成
 // =====================
 function generateTerrain(seed) {
   const canvas = document.getElementById("map");
@@ -69,37 +69,45 @@ function generateTerrain(seed) {
   const H = canvas.height;
   const img = ctx.createImageData(W, H);
 
-  // 横方向の解像度（この値が小さいほど大陸が大きく、大きいほど細かくなる）
-  const scaleX = 5; 
-  const scaleY = 5;
+  const scaleX = 4; // ここの値を調整すると大陸の大きさが変わる
+  const scaleY = 4;
 
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
-      // x / W を使うことで、0.0 ～ 1.0 の範囲にし、それに scale をかける
-      // これにより、右端(x=W)が左端(x=0)と同じノイズ位置を参照するようになる
       const nx = x / W;
       const ny = y / H;
 
-      const n = fbm(nx * scaleX, ny * scaleY, seed, scaleX);
+      // --- ドメイン・ワーピング（フラクタルな歪み） ---
+      // 座標自体をノイズでゆがませることで、より自然な海岸線になります
+      const qx = fbm(nx * scaleX + 1.1, ny * scaleY + 1.1, seed + 10, scaleX);
+      const qy = fbm(nx * scaleX + 3.3, ny * scaleY + 3.3, seed + 20, scaleX);
+      
+      // ゆがんだ座標を使って最終的な高さを計算
+      const n = fbm((nx + qx * 0.1) * scaleX, (ny + qy * 0.1) * scaleY, seed, scaleX);
 
-      const h = n * 0.8 - 0.5; // -0.2 で海面を調整
+      const h = n - 0.45; // 0.4～0.6あたりで陸地の量を調整
       const i = (y * W + x) * 4;
 
       if (h <= 0) {
+        // 海：深さによって青の濃さを変える
+        const depth = Math.max(0, 1 + h * 2); 
         img.data[i]     = 20;
-        img.data[i + 1] = 40 + (n * 50); // 海にも深さを出す
-        img.data[i + 2] = 120 + (n * 40);
+        img.data[i + 1] = 30 + depth * 50;
+        img.data[i + 2] = 100 + depth * 60;
       } else {
-        // 標高が高いほど白く（雪山）、低いほど緑に
+        // 陸地
         const brightness = h * 150;
-        img.data[i]     = 40 + brightness;
-        img.data[i + 1] = 120 + brightness * 0.5;
-        img.data[i + 2] = 40;
-        // 雪山の表現（一定以上の高さ）
         if (h > 0.5) {
-            img.data[i] = 200 + h * 55;
-            img.data[i + 1] = 200 + h * 55;
-            img.data[i + 2] = 230 + h * 25;
+          // 雪山
+          const snow = (h - 0.5) * 200;
+          img.data[i]     = 200 + snow;
+          img.data[i + 1] = 200 + snow;
+          img.data[i + 2] = 220 + snow;
+        } else {
+          // 森・草原
+          img.data[i]     = 40 + brightness;
+          img.data[i + 1] = 100 + brightness * 0.5;
+          img.data[i + 2] = 30;
         }
       }
       img.data[i + 3] = 255;
@@ -108,13 +116,10 @@ function generateTerrain(seed) {
   ctx.putImageData(img, 0, 0);
 }
 
-// =====================
-// ボタン用
-// =====================
 function run() {
-  const seed = parseInt(document.getElementById("seed").value, 10);
+  const seedInput = document.getElementById("seed");
+  const seed = seedInput ? parseInt(seedInput.value, 10) : 12345;
   generateTerrain(seed);
 }
 
-// 初期表示
 run();
