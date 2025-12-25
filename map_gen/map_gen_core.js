@@ -38,7 +38,7 @@ function smoothNoise(x, y, seed, periodX) {
 // =====================
 function fbm(x, y, seed, baseFreqX) {
   let value = 0;
-  let amp = 0.5; // 初期振幅を少し抑える
+  let amp = 1.0; // 0.5 から 1.0 に戻す
   let freq = 1.0;
   const persistence = 0.5; 
   const lacunarity = 2.0;
@@ -73,6 +73,7 @@ document.getElementById("seaLevel").addEventListener("input", (e) => {
 
 function generateTerrain(seed) {
   const canvas = document.getElementById("map");
+  if (!canvas) return; // キャンバスがない場合のエラー回避
   const ctx = canvas.getContext("2d");
   const W = canvas.width;
   const H = canvas.height;
@@ -86,28 +87,35 @@ function generateTerrain(seed) {
       const nx = x / W;
       const ny = y / H;
 
+      // n はだいたい 0.2 〜 0.8 くらいに分布します
       const n = fbm(nx * scaleX, ny * scaleY, seed, scaleX);
 
-      // 【修正ポイント】固定値 0.5 ではなくスライダーの値（currentSeaLevel）を使う
-      // n は 0～1 くらいで返ってくるので、それを基準に判定
-      const h = n - currentSeaLevel; 
+      // 海水面の基準を n の分布に合わせる（少し調整）
+      // n をそのまま使うより、少し増幅させると陸地がはっきりします
+      const h = (n * 1.2) - currentSeaLevel; 
       
       const i = (y * W + x) * 4;
 
       if (h <= 0) {
-        // 海
-        img.data[i]     = 30;
-        img.data[i + 1] = 70;
-        img.data[i + 2] = 150;
+        // 海（少し深く、暗めに）
+        img.data[i]     = 20;
+        img.data[i + 1] = 50;
+        img.data[i + 2] = 120;
       } else {
         // 陸地
-        const brightness = h * 100;
-        img.data[i]     = 50 + brightness;
-        img.data[i + 1] = 150 + brightness;
-        img.data[i + 2] = 50;
-        
-        if (h > 0.3) { // 高い場所は雪
-            img.data[i] = 240; img.data[i + 1] = 240; img.data[i + 2] = 250;
+        // hが小さいほど海岸（砂浜っぽく）、大きいほど山
+        if (h < 0.05) { 
+          // 砂浜
+          img.data[i] = 220; img.data[i + 1] = 200; img.data[i + 2] = 150;
+        } else if (h > 0.4) { 
+          // 雪山
+          img.data[i] = 255; img.data[i + 1] = 255; img.data[i + 2] = 255;
+        } else {
+          // 森
+          const brightness = h * 120;
+          img.data[i]     = 40 + brightness;
+          img.data[i + 1] = 120 + brightness;
+          img.data[i + 2] = 40;
         }
       }
       img.data[i + 3] = 255;
