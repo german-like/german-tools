@@ -75,7 +75,7 @@ function generateTerrain(seed) {
 
       const n = fbm(nx * scaleX, ny * scaleY, seed, scaleX);
 
-      const h = n * 0.8 - 0.2; // -0.2 で海面を調整
+      const h = n * 0.8 - 0.7; // -0.2 で海面を調整
       const i = (y * W + x) * 4;
 
       if (h <= 0) {
