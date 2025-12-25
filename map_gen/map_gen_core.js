@@ -42,12 +42,19 @@ function fbm(x, y, seed, baseFreqX) {
   let amp = 1;
   let freq = 1;
 
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 9; i++) {
     // 周期（periodX）は、基準となる周波数に合わせた整数値にする
-    const periodX = Math.max(1, Math.round(baseFreqX * freq));
-    value += smoothNoise(x * freq, y * freq, seed + i * 1000, periodX) * amp;
-    amp *= 0.5;
-    freq *= 2;
+    const pX = Math.max(1, Math.round(baseFreqX * freq));
+
+    let signal = smoothNoise(x * freq, y * freq, seed + i * 1000, pX);
+    
+    signal = 1.0 - Math.abs(signal * 2.0 - 1.0);
+    signal *= signal; // 鋭さを強調
+
+    value += signal * amp;
+    
+    amp *= persistence;
+    freq *= lacunarity;
   }
   return value;
 }
@@ -79,13 +86,21 @@ function generateTerrain(seed) {
       const i = (y * W + x) * 4;
 
       if (h <= 0) {
-        img.data[i]     = 30;
-        img.data[i + 1] = 80;
-        img.data[i + 2] = 160;
+        img.data[i]     = 20;
+        img.data[i + 1] = 40 + (n * 50); // 海にも深さを出す
+        img.data[i + 2] = 120 + (n * 40);
       } else {
-        img.data[i]     = 60 + h * 90;
-        img.data[i + 1] = 140 + h * 60;
-        img.data[i + 2] = 60;
+        // 標高が高いほど白く（雪山）、低いほど緑に
+        const brightness = h * 150;
+        img.data[i]     = 40 + brightness;
+        img.data[i + 1] = 120 + brightness * 0.5;
+        img.data[i + 2] = 40;
+        // 雪山の表現（一定以上の高さ）
+        if (h > 0.5) {
+            img.data[i] = 200 + h * 55;
+            img.data[i + 1] = 200 + h * 55;
+            img.data[i + 2] = 230 + h * 25;
+        }
       }
       img.data[i + 3] = 255;
     }
