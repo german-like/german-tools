@@ -106,7 +106,7 @@ footer {
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12);
 }
 
-.card-title {
+.card-title a {
   font-size: 1.2rem;
   font-weight: 700;
   margin-bottom: 0.5rem;
