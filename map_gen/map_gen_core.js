@@ -58,16 +58,17 @@ function fbm(x, y, seed, baseFreqX) {
 // =====================
 // 地形生成
 // =====================
-let currentSeaLevel = 0.5;
+let currentSeaLevel = 0.35;
 
 // スライダーの動作を設定
 document.getElementById("seaLevel").addEventListener("input", (e) => {
-  currentSeaLevel = parseFloat(e.target.value);
-  document.getElementById("levelValue").innerText = currentSeaLevel;
+  let val = parseFloat(e.target.value);
   
-  // 値が変わるたびに再描画
-  const seed = parseInt(document.getElementById("seed").value, 10) || 0;
-  generateTerrain(seed);
+  // 入力された値を 1/20 (0.05) 単位に強制的に丸める場合
+  currentSeaLevel = Math.round(val * 20) / 20;
+  
+  document.getElementById("levelValue").innerText = currentSeaLevel.toFixed(2);
+  run(); // 再描画
 });
 
 function generateTerrain(seed) {
