@@ -56,8 +56,20 @@ function fbm(x, y, seed, baseFreqX) {
 }
 
 // =====================
-// 地形生成（ドメイン・ワーピングを削除）
+// 地形生成
 // =====================
+let currentSeaLevel = 0.5;
+
+// スライダーの動作を設定
+document.getElementById("seaLevel").addEventListener("input", (e) => {
+  currentSeaLevel = parseFloat(e.target.value);
+  document.getElementById("levelValue").innerText = currentSeaLevel;
+  
+  // 値が変わるたびに再描画
+  const seed = parseInt(document.getElementById("seed").value, 10) || 0;
+  generateTerrain(seed);
+});
+
 function generateTerrain(seed) {
   const canvas = document.getElementById("map");
   const ctx = canvas.getContext("2d");
@@ -73,11 +85,12 @@ function generateTerrain(seed) {
       const nx = x / W;
       const ny = y / H;
 
-      // 直接 nx, ny を使って計算します
       const n = fbm(nx * scaleX, ny * scaleY, seed, scaleX);
 
-      // 高さを調整（0.5が標準的な海面）
-      const h = n - 0.35; 
+      // 【修正ポイント】固定値 0.5 ではなくスライダーの値（currentSeaLevel）を使う
+      // n は 0～1 くらいで返ってくるので、それを基準に判定
+      const h = n - currentSeaLevel; 
+      
       const i = (y * W + x) * 4;
 
       if (h <= 0) {
@@ -92,11 +105,8 @@ function generateTerrain(seed) {
         img.data[i + 1] = 150 + brightness;
         img.data[i + 2] = 50;
         
-        // 山頂（雪）
-        if (h > 0.3) {
-            img.data[i] = 240;
-            img.data[i + 1] = 240;
-            img.data[i + 2] = 250;
+        if (h > 0.3) { // 高い場所は雪
+            img.data[i] = 240; img.data[i + 1] = 240; img.data[i + 2] = 250;
         }
       }
       img.data[i + 3] = 255;
