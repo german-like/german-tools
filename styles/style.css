@@ -78,6 +78,7 @@ main {
 
 a {
   text-decoration: none;
+  color: #6a75c4;
 }
 
 footer {
@@ -106,7 +107,7 @@ footer {
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12);
 }
 
-.card-title a {
+.card-title {
   font-size: 1.2rem;
   font-weight: 700;
   margin-bottom: 0.5rem;
