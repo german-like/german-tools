@@ -64,8 +64,7 @@ let currentSeaLevel = 0.35;
 document.getElementById("seaLevel").addEventListener("input", (e) => {
   let val = parseFloat(e.target.value);
   
-  // 入力された値を 1/20 (0.05) 単位に強制的に丸める場合
-  currentSeaLevel = Math.round(val * 20) / 20;
+  currentSeaLevel = val;
   
   document.getElementById("levelValue").innerText = currentSeaLevel.toFixed(2);
 });
