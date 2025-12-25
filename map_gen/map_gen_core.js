@@ -122,6 +122,24 @@ function generateTerrain(seed) {
   ctx.putImageData(img, 0, 0);
 }
 
+// =====================
+// シードをランダムに生成して描画
+// =====================
+function randomizeAndRun() {
+  // 0 から 999999 の間でランダムな整数を作る
+  const randomSeed = Math.floor(Math.random() * 1000000);
+  
+  // HTMLの入力欄にその数字を表示させる
+  const seedInput = document.getElementById("seed");
+  if (seedInput) {
+    seedInput.value = randomSeed;
+  }
+  
+  // 地形を生成
+  generateTerrain(randomSeed);
+}
+
+// 既存の run 関数も、入力欄の数字を読み取って動くようにしておく
 function run() {
   const seedInput = document.getElementById("seed");
   const seed = seedInput ? parseInt(seedInput.value, 10) : 12345;
