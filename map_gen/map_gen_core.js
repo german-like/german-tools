@@ -8,18 +8,22 @@ function hash(x, y, seed) {
 }
 
 // =====================
-// スムーズノイズ
+// スムーズノイズ（ループ対応版）
 // =====================
-function smoothNoise(x, y, seed) {
+function smoothNoise(x, y, seed, periodX) {
   const xi = Math.floor(x);
   const yi = Math.floor(y);
   const xf = x - xi;
   const yf = y - yi;
 
-  const n00 = hash(xi, yi, seed);
-  const n10 = hash(xi + 1, yi, seed);
-  const n01 = hash(xi, yi + 1, seed);
-  const n11 = hash(xi + 1, yi + 1, seed);
+  // X軸方向にだけループするように、次の座標(xi + 1)を「幅(periodX)」で割った余りにする
+  const nextX = (xi + 1) % periodX;
+  const currX = xi % periodX;
+
+  const n00 = hash(currX, yi, seed);
+  const n10 = hash(nextX, yi, seed); // 右隣が左端に繋がる
+  const n01 = hash(currX, yi + 1, seed);
+  const n11 = hash(nextX, yi + 1, seed);
 
   const u = xf * xf * (3 - 2 * xf);
   const v = yf * yf * (3 - 2 * yf);
@@ -31,15 +35,17 @@ function smoothNoise(x, y, seed) {
 }
 
 // =====================
-// FBM
+// FBM（ループ対応版）
 // =====================
-function fbm(x, y, seed) {
+function fbm(x, y, seed, baseFreqX) {
   let value = 0;
   let amp = 1;
   let freq = 1;
 
   for (let i = 0; i < 5; i++) {
-    value += smoothNoise(x * freq, y * freq, seed + i * 1000) * amp;
+    // 周期（periodX）は、基準となる周波数に合わせた整数値にする
+    const periodX = Math.max(1, Math.round(baseFreqX * freq));
+    value += smoothNoise(x * freq, y * freq, seed + i * 1000, periodX) * amp;
     amp *= 0.5;
     freq *= 2;
   }
@@ -47,27 +53,29 @@ function fbm(x, y, seed) {
 }
 
 // =====================
-// 地形生成
+// 地形生成（呼び出し側の修正）
 // =====================
 function generateTerrain(seed) {
   const canvas = document.getElementById("map");
   const ctx = canvas.getContext("2d");
   const W = canvas.width;
   const H = canvas.height;
-
   const img = ctx.createImageData(W, H);
+
+  // 横方向の解像度（この値が小さいほど大陸が大きく、大きいほど細かくなる）
+  const scaleX = 5; 
+  const scaleY = 5;
 
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
+      // x / W を使うことで、0.0 ～ 1.0 の範囲にし、それに scale をかける
+      // これにより、右端(x=W)が左端(x=0)と同じノイズ位置を参照するようになる
+      const nx = x / W;
+      const ny = y / H;
 
-      const nx = x / W - 0.5;
-      const ny = y / H - 0.5;
-      const d = Math.sqrt(nx * nx + ny * ny);
+      const n = fbm(nx * scaleX, ny * scaleY, seed, scaleX);
 
-      const continent = Math.max(0, 1 - d * 1.8);
-      const n = fbm(x * 0.01, y * 0.01, seed);
-
-      const h = continent + n * 0.8 - 0.4;
+      const h = n * 0.8 - 0.2; // -0.2 で海面を調整
       const i = (y * W + x) * 4;
 
       if (h <= 0) {
@@ -79,11 +87,9 @@ function generateTerrain(seed) {
         img.data[i + 1] = 140 + h * 60;
         img.data[i + 2] = 60;
       }
-
       img.data[i + 3] = 255;
     }
   }
-
   ctx.putImageData(img, 0, 0);
 }
 
