@@ -97,32 +97,56 @@ function run() {
 function draw(canvas, ctx, grid, seaLevel) {
     const width = canvas.width;
     const height = canvas.height;
-    const imgData = ctx.createImageData(width, height);
     
+    const imgData = ctx.createImageData(width, height);
+    const data = imgData.data; 
+
     for (let i = 0; i < grid.length; i++) {
-        const h = grid[i];
-        const y = Math.floor(i / width);
-        const latNormalized = Math.abs((y / height) * 2 - 1);
-        
+        const h = grid[i]; // その地点の標高 (0.0 〜 1.0)
+        const y = Math.floor(i / width); // 緯度判定用
+        const latNormalized = Math.abs((y / height) * 2 - 1); // 赤道(0)〜極(1)
+
         let r, g, b;
+
         if (h < seaLevel) {
-            // 海：深さによる青の塗り分け
-            const d = h / seaLevel;
-            r = 30; g = 60 + (d * 40); b = 120 + (d * 60);
+            // --- 海の処理 (変更なし) ---
+            const d = h / seaLevel; // 海の深さ (0 〜 1)
+            r = 30; 
+            g = 60 + (d * 40); 
+            b = 120 + (d * 60);
         } else {
-             // 陸地の計算
-             const e = (h - seaLevel) / (1 - seaLevel);
-             r = (e * 60); 
-             g = 200 - (e / 10); 
-             b = 60;
+            // --- 陸地の処理 (ここが「茶色型」) ---
+            const e = (h - seaLevel) / (1 - seaLevel); // 陸の比率 (0 〜 1)
+            
+            if (latNormalized > 0.85 - (e * 0.15)) { // 極地の雪（高緯度ほど雪）
+                r = 245; g = 245; b = 255; // わずかに青みがかった雪
+            } else if (e < 0.05) { // 砂浜（海岸線）
+                r = 230; g = 210; b = 160; 
+            } else if (e < 0.25) { // 低地〜草原
+                r = 100 + (e * 80); // 緑の濃淡
+                g = 180 - (e * 50);
+                b = 80;
+            } else if (e < 0.55) { // 中高度の丘陵地〜森林
+                r = 140 + (e * 40); // 茶色味が強くなる
+                g = 130 + (e * 30);
+                b = 90;
+            } else if (e < 0.8) { // 高い山岳地帯
+                r = 180 + (e * 20); // 灰色っぽい岩肌
+                g = 170 + (e * 20);
+                b = 160 + (e * 20);
+            } else { // 最高峰の雪（標高が高いと雪）
+                r = 255; g = 255; b = 255; 
+            }
         }
-        
+
+        // ImageData配列への書き込み
         const idx = i * 4;
-        imgData.data[idx] = r;
-        imgData.data[idx+1] = g;
-        imgData.data[idx+2] = b;
-        imgData.data[idx+3] = 255;
+        data[idx]     = r;   // 赤
+        data[idx + 1] = g;   // 緑
+        data[idx + 2] = b;   // 青
+        data[idx + 3] = 255; // 透明度 (不透明)
     }
+
     ctx.putImageData(imgData, 0, 0);
 }
 
