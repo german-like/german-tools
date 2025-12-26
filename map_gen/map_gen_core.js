@@ -111,10 +111,12 @@ class FaultMapGenerator {
   generate(iterations = 320) {
     const continentMask = generateContinentMask(this.width, this.height, this.rng);
 
+    // ★ 1. 初期状態の設定を少しマイルドにする
     for (let y = 0; y < this.height; y++) {
       for (let x = 0; x < this.width; x++) {
         const m = continentMask[y * this.width + x];
-        this.map[y][x] = m > 0 ? m * 1.5 : -2.5;
+        // マスクがある場所は少し高く、ない場所も極端に深くしすぎない
+        this.map[y][x] = m > 0 ? m * 1.0 : -0.5;
       }
     }
 
@@ -123,13 +125,26 @@ class FaultMapGenerator {
     for (let i = 0; i < iterations * 0.65; i++) { this.applyFaultCurved(d); d *= 0.997; }
     for (let i = 0; i < iterations * 0.27; i++) { this.applyFaultCurved(d * 0.5); d *= 0.995; }
 
+    // ★ 2. マスクによる最終制御（ここが重要！）
     for (let y = 0; y < this.height; y++) {
       for (let x = 0; x < this.width; x++) {
-        const m = continentMask[y * this.width + x];
-        if (m <= 0) this.map[y][x] = -3.0;
-        else this.map[y][x] *= (0.7 + m);
-        // 微細なノイズ
-        this.map[y][x] += (this.rng.next() - 0.5) * 0.01;
+        const idx = y * this.width + x;
+        const m = continentMask[idx];
+        
+        // 楕円の境界でパキッと消さない工夫：
+        // マスクの値をそのまま使うのではなく、少しゲインをかけて滑らかに沈み込ませる
+        const smoothMask = Math.pow(m, 0.5); // ルートを取ることで縁を広げる
+        
+        if (m <= 0) {
+          // マスク外は「断層で盛り上がった分」を大幅に削るが、少しだけ地形を残す
+          this.map[y][x] -= 2.0; 
+        } else {
+          // マスク内は地形を活かしつつ、端に行くほど緩やかに海へ沈める
+          this.map[y][x] *= (0.5 + smoothMask);
+        }
+
+        // 微細なノイズで海岸線をさらにガタガタにする
+        this.map[y][x] += (this.rng.next() - 0.5) * 0.05;
       }
     }
     this.normalize();
