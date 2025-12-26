@@ -22,75 +22,73 @@ class Random {
 /* =========================
    テクトニクス・ジェネレーター
 ========================= */
+
 function run() {
-    const canvas = document.getElementById('map');
-    const ctx = canvas.getContext('2d');
-    const seed = document.getElementById('seed').value;
-    const seaLevel = parseFloat(document.getElementById('seaLevel').value);
+    const msg = document.getElementById('loadingMsg');
     
-    const rng = new Random(seed);
-    const width = canvas.width;
-    const height = canvas.height;
-    
-    // 1次元配列で管理
-    const grid = new Float32Array(width * height).fill(0.5);
+    // 1. メッセージを表示
+    msg.style.display = 'inline';
 
-    // 断層（Faulting）の反復回数。多いほどディテールが増す
-    const iterations = 400; 
-    let displacement = 0.0075; // 1回の断層で動く高さ
-
-    for (let i = 0; i < iterations; i++) {
-        // 球面上のランダムな断層線を決定（大円）
-        // 経度(phi)と緯度(theta)のランダムな極を生成
-        const pPhi = rng.next() * Math.PI * 2;
-        const pTheta = Math.acos(2 * rng.next() - 1);
+    // 2. 画面描画を一度確定させるためにsetTimeoutを使う
+    setTimeout(() => {
+        const canvas = document.getElementById('map');
+        const ctx = canvas.getContext('2d');
+        const seed = document.getElementById('seed').value;
+        const seaLevel = parseFloat(document.getElementById('seaLevel').value);
         
-        // 極の直交座標
-        const px = Math.sin(pTheta) * Math.cos(pPhi);
-        const py = Math.sin(pTheta) * Math.sin(pPhi);
-        const pz = Math.cos(pTheta);
+        const rng = new Random(seed);
+        const width = canvas.width;
+        const height = canvas.height;
+        const grid = new Float32Array(width * height).fill(0.5);
 
-        for (let y = 0; y < height; y++) {
-            // 現在のピクセルの緯度
-            const lat = (1.0 - y / height) * Math.PI;
-            const sinLat = Math.sin(lat);
-            const cosLat = Math.cos(lat);
-            const rowOffset = y * width;
+        const iterations = 400; 
+        let displacement = 0.0075; 
 
-            for (let x = 0; x < width; x++) {
-                // 現在のピクセルの経度
-                const lon = (x / width) * Math.PI * 2;
-                
-                // ピクセルの直交座標
-                const wx = sinLat * Math.cos(lon);
-                const wy = sinLat * Math.sin(lon);
-                const wz = cosLat;
+        // --- 生成ロジック本体 ---
+        for (let i = 0; i < iterations; i++) {
+            const pPhi = rng.next() * Math.PI * 2;
+            const pTheta = Math.acos(2 * rng.next() - 1);
+            const px = Math.sin(pTheta) * Math.cos(pPhi);
+            const py = Math.sin(pTheta) * Math.sin(pPhi);
+            const pz = Math.cos(pTheta);
 
-                // 点と平面の距離（内積）によってどちら側にいるか判定
-                // これにより、地図の左右が自然に繋がる
-                if (wx * px + wy * py + wz * pz > 0) {
-                    grid[rowOffset + x] += displacement;
-                } else {
-                    grid[rowOffset + x] -= displacement;
+            for (let y = 0; y < height; y++) {
+                const lat = (1.0 - y / height) * Math.PI;
+                const sinLat = Math.sin(lat);
+                const cosLat = Math.cos(lat);
+                const rowOffset = y * width;
+                for (let x = 0; x < width; x++) {
+                    const lon = (x / width) * Math.PI * 2;
+                    const wx = sinLat * Math.cos(lon);
+                    const wy = sinLat * Math.sin(lon);
+                    const wz = cosLat;
+                    if (wx * px + wy * py + wz * pz > 0) {
+                        grid[rowOffset + x] += displacement;
+                    } else {
+                        grid[rowOffset + x] -= displacement;
+                    }
                 }
             }
+            displacement *= 0.999;
         }
-        // 徐々に変化量を小さくすることで、大きな大陸から細かい海岸線を作る
-        displacement *= 0.999;
-    }
 
-    // 正規化（0.0 ~ 1.0）
-    let min = Infinity, max = -Infinity;
-    for (let i = 0; i < grid.length; i++) {
-        if (grid[i] < min) min = grid[i];
-        if (grid[i] > max) max = grid[i];
-    }
-    const range = max - min;
-    for (let i = 0; i < grid.length; i++) {
-        grid[i] = (grid[i] - min) / range;
-    }
+        // 正規化と描画
+        let min = Infinity, max = -Infinity;
+        for (let i = 0; i < grid.length; i++) {
+            if (grid[i] < min) min = grid[i];
+            if (grid[i] > max) max = grid[i];
+        }
+        const range = max - min || 1;
+        for (let i = 0; i < grid.length; i++) {
+            grid[i] = (grid[i] - min) / range;
+        }
 
-    draw(canvas, ctx, grid, seaLevel);
+        draw(canvas, ctx, grid, seaLevel);
+
+        // 3. 生成が終わったらメッセージを消す
+        msg.style.display = 'none';
+        
+    }, 10); // 10ミリ秒だけ待ってから計算開始
 }
 
 /* =========================
