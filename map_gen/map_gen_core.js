@@ -113,8 +113,8 @@ function draw(canvas, ctx, grid, seaLevel) {
              // 陸地の計算
              const e = (h - seaLevel) / (1 - seaLevel);
              r = (e * 60); 
-             g = 200 / (e * 10); 
-             b = 60 / e;
+             g = 200 - (e / 10); 
+             b = 60;
         }
         
         const idx = i * 4;
