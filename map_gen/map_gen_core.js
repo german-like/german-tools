@@ -119,7 +119,7 @@ function draw(canvas, ctx, grid, seaLevel) {
             const e = (h - seaLevel) / (1 - seaLevel); // 陸の比率 (0 〜 1)
             
                 r = 100 + (e * 100); // 緑の濃淡
-                g = 180 - (e * 100);
+                g = 180 + (e * 70);
                 b = 80;
         }
 
