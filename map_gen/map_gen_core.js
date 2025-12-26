@@ -14,7 +14,7 @@ class Random {
         return Math.abs(hash);
     }
     next() {
-        this.seed = (this.seed * 1664525 + 1013904223) >>> 0;
+        this.seed = (this.seed * 1625 + 1023) >>> 0;
         return this.seed / 0xffffffff;
     }
 }
@@ -42,7 +42,7 @@ function run() {
         const grid = new Float32Array(width * height).fill(0.5);
 
         const iterations = 400; 
-        let displacement = 0.0075; 
+        let displacement = 0.0001; 
 
         // --- 生成ロジック本体 ---
         for (let i = 0; i < iterations; i++) {
