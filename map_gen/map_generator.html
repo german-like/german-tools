@@ -18,7 +18,9 @@
     <button onclick="randomizeAndRun()" style="background-color: #4CAF50; color: white;">🎲 ランダム生成</button>
     <button onclick="downloadMap()">ダウンロード</button>
   </div>
-  <main><canvas id="map" width="1000" height="500"></canvas>
+  <main>
+      <span id="loadingMsg" style="color: #666; margin-left: 10px; display: none;">Wait a minute...</span>
+      <canvas id="map" width="1000" height="500"></canvas>
   </main>
   <footer>
     <! --- フッター --->
