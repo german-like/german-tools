@@ -110,9 +110,11 @@ function draw(canvas, ctx, grid, seaLevel) {
             const d = h / seaLevel;
             r = 30; g = 60 + (d * 40); b = 120 + (d * 60);
         } else {
-            // 陸：標高と緯度による塗り分け
-            const e = (h - seaLevel) / (1 - seaLevel);
-            r = (e * 60); g = 200; b = 30 + (e * 10);
+             // 陸地の計算
+             const e = (h - seaLevel) / (1 - seaLevel);
+             r = (e * 60); 
+             g = 30 + (e * 10); 
+             b = 60;
         }
         
         const idx = i * 4;
