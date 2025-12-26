@@ -115,12 +115,13 @@ function draw(canvas, ctx, grid, seaLevel) {
             // 陸：標高と緯度による塗り分け
             const e = (h - seaLevel) / (1 - seaLevel);
             
-            } else if (e < 0.05) { // 砂浜
+            if (e < 0.05) { // 砂浜
                 r = 230; g = 210; b = 160;
             } else if (e < 0.4) { // 平原
                 r = 80 + (e * 50); g = 150 - (e * 30); b = 70;
             } else if (e < 0.7) { // 山岳
                 r = 120; g = 110; b = 100;
+            }
         }
         
         const idx = i * 4;
@@ -145,4 +146,4 @@ function downloadMap() {
     link.click();
 }
 
-window.onload = run();
+window.onload = run;
