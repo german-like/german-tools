@@ -49,61 +49,77 @@ function generateContinentMask(width, height, rng) {
 }
 
 /* =========================
-   断層地形ジェネレーター
+   断層地形ジェネレーター（浸食対応版）
 ========================= */
 class FaultMapGenerator {
   constructor(width, height, rng) {
     this.width = width;
     this.height = height;
     this.rng = rng;
-    this.map = Array.from({ length: height }, () => new Float32Array(width).fill(0));
+    // 高速化のため1次元配列に変更
+    this.grid = new Float32Array(width * height).fill(0);
   }
 
+  // 断層処理 (Curved)
   applyFaultCurved(displacement) {
     const cx = this.rng.next() * this.width;
     const cy = this.rng.next() * this.height;
     const angle = this.rng.next() * Math.PI * 2;
     const dx = Math.cos(angle);
     const dy = Math.sin(angle);
-
     const width = 20 + this.rng.next() * 40;
-    const bendFreq = 80 + this.rng.next() * 120;
-    const bendAmp = 10 + this.rng.next() * 25;
 
-    for (let y = 0; y < this.height; y++) {
-      for (let x = 0; x < this.width; x++) {
-        if (this.map[y][x] < -1.5) continue;
-
-        const px = x - cx;
-        const py = y - cy;
-        const along = px * dx + py * dy;
-        const bend = Math.sin(along / bendFreq) * bendAmp;
-        const dist = px * dy - py * dx + bend;
-
-        const influence = Math.sign(dist) * (1 - Math.exp(-Math.abs(dist) / (width * 0.35)));
-        this.map[y][x] += influence * displacement;
-
-        if (Math.abs(dist) < width * 0.15) {
-          this.map[y][x] += Math.sign(dist) * displacement * 0.4;
-        }
-      }
+    for (let i = 0; i < this.grid.length; i++) {
+      const x = i % this.width;
+      const y = Math.floor(i / this.width);
+      const px = x - cx;
+      const py = y - cy;
+      const dist = px * dy - py * dx; // 簡易版の距離計算
+      this.grid[i] += Math.sign(dist) * displacement * (1 - Math.exp(-Math.abs(dist) / width));
     }
   }
 
-  applyFaultDome(displacement) {
-    const cx = this.rng.next() * this.width;
-    const cy = this.rng.next() * this.height;
-    const radius = 200 + this.rng.next() * 300;
+  // ★ 水流浸食シミュレーション
+  // 雨粒を落として、高い所から低い所へ「土砂」を運ぶ
+  applyErosion(iterations) {
+    for (let i = 0; i < iterations; i++) {
+      let x = this.rng.next() * (this.width - 1);
+      let y = this.rng.next() * (this.height - 1);
+      let dirX = 0, dirY = 0;
+      let sediment = 0;
+      let water = 1.0;
+      let speed = 1.0;
 
-    for (let y = 0; y < this.height; y++) {
-      for (let x = 0; x < this.width; x++) {
-        const dx = x - cx;
-        const dy = y - cy;
-        const r = Math.sqrt(dx * dx + dy * dy);
-        if (r < radius) {
-          const influence = Math.cos((r / radius) * Math.PI) * 0.5 + 0.5;
-          this.map[y][x] += influence * displacement;
+      for (let step = 0; step < 30; step++) {
+        const ix = Math.floor(x), iy = Math.floor(y);
+        const idx = iy * this.width + ix;
+
+        // 周囲との傾斜（勾配）を計算
+        const gX = this.grid[idx + 1] - this.grid[idx];
+        const gY = this.grid[idx + this.width] - this.grid[idx];
+
+        // 移動方向を決定
+        dirX = dirX * 0.1 - gX * 0.9;
+        dirY = dirY * 0.1 - gY * 0.9;
+        x += dirX; y += dirY;
+
+        if (x < 0 || x >= this.width - 1 || y < 0 || y >= this.height - 1) break;
+
+        const newIdx = Math.floor(y) * this.width + Math.floor(x);
+        const diff = this.grid[newIdx] - this.grid[idx];
+
+        // 土砂の運搬
+        const capacity = Math.max(-diff, 0) * speed * water * 4.0;
+        if (sediment > capacity) {
+          const drop = (sediment - capacity) * 0.1;
+          this.grid[idx] += drop;
+          sediment -= drop;
+        } else {
+          const uplift = (capacity - sediment) * 0.1;
+          this.grid[idx] -= uplift;
+          sediment += uplift;
         }
+        water *= 0.99;
       }
     }
   }
@@ -111,62 +127,43 @@ class FaultMapGenerator {
   generate(iterations = 320) {
     const continentMask = generateContinentMask(this.width, this.height, this.rng);
 
-    // ★ 1. 初期状態の設定を少しマイルドにする
-    for (let y = 0; y < this.height; y++) {
-      for (let x = 0; x < this.width; x++) {
-        const m = continentMask[y * this.width + x];
-        // マスクがある場所は少し高く、ない場所も極端に深くしすぎない
-        this.map[y][x] = m > 0 ? m * 1.0 : -0.5;
-      }
+    // 1. 初期化
+    for (let i = 0; i < this.grid.length; i++) {
+      const m = continentMask[i];
+      this.grid[i] = m > 0 ? (m * 0.5) : -0.2;
     }
 
-    let d = 1.0;
-    for (let i = 0; i < iterations * 0.08; i++) this.applyFaultDome(d * 1.4);
-    for (let i = 0; i < iterations * 0.65; i++) { this.applyFaultCurved(d); d *= 0.997; }
-    for (let i = 0; i < iterations * 0.27; i++) { this.applyFaultCurved(d * 0.5); d *= 0.995; }
-
-    // ★ 2. マスクによる最終制御（ここが重要！）
-    for (let y = 0; y < this.height; y++) {
-      for (let x = 0; x < this.width; x++) {
-        const idx = y * this.width + x;
-        const m = continentMask[idx];
-        
-        // 楕円の境界でパキッと消さない工夫：
-        // マスクの値をそのまま使うのではなく、少しゲインをかけて滑らかに沈み込ませる
-        const smoothMask = Math.pow(m, 0.5); // ルートを取ることで縁を広げる
-        
-        if (m <= 0) {
-          // マスク外は「断層で盛り上がった分」を大幅に削るが、少しだけ地形を残す
-          this.map[y][x] -= 2.0; 
-        } else {
-          // マスク内は地形を活かしつつ、端に行くほど緩やかに海へ沈める
-          this.map[y][x] *= (0.5 + smoothMask);
-        }
-
-        // 微細なノイズで海岸線をさらにガタガタにする
-        this.map[y][x] += (this.rng.next() - 0.5) * 0.05;
-      }
+    // 2. 断層形成
+    let d = 0.5;
+    for (let i = 0; i < iterations; i++) {
+      this.applyFaultCurved(d);
+      d *= 0.998;
     }
+
+    // 3. 浸食処理 (これを加えると川のような筋ができる)
+    this.applyErosion(50000); 
+
+    // 4. マスクで海を広げる
+    for (let i = 0; i < this.grid.length; i++) {
+      const m = continentMask[i];
+      const smoothMask = Math.pow(m, 0.4);
+      if (m <= 0) this.grid[i] -= 0.5;
+      else this.grid[i] *= (0.3 + smoothMask);
+    }
+
     this.normalize();
   }
 
   normalize() {
-    let min = Infinity, max = -Infinity;
-    for (let y = 0; y < this.height; y++) {
-      for (let x = 0; x < this.width; x++) {
-        const v = this.map[y][x];
-        if (v < min) min = v;
-        if (v > max) max = v;
-      }
-    }
+    let min = Math.min(...this.grid), max = Math.max(...this.grid);
     const range = max - min || 1;
-    for (let y = 0; y < this.height; y++) {
-      for (let x = 0; x < this.width; x++) {
-        this.map[y][x] = (this.map[y][x] - min) / range;
-      }
+    for (let i = 0; i < this.grid.length; i++) {
+      this.grid[i] = (this.grid[i] - min) / range;
     }
   }
 }
+
+// ※ drawMap 関数内での map[y][x] は map[y * w + x] に書き換えてください
 
 /* =========================
    描画・実行制御
@@ -202,7 +199,7 @@ function drawMap(canvas, ctx, map, seaLevel) {
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
-      const height = map[y][x];
+      const height = map[y * w + x];
       const i = (y * w + x) * 4;
 
       let r, g, b;
