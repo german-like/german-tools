@@ -37,7 +37,7 @@ function run() {
 
     // 断層（Faulting）の反復回数。多いほどディテールが増す
     const iterations = 400; 
-    let displacement = 0.01; // 1回の断層で動く高さ
+    let displacement = 0.0075; // 1回の断層で動く高さ
 
     for (let i = 0; i < iterations; i++) {
         // 球面上のランダムな断層線を決定（大円）
@@ -76,7 +76,7 @@ function run() {
             }
         }
         // 徐々に変化量を小さくすることで、大きな大陸から細かい海岸線を作る
-        displacement *= 0.995;
+        displacement *= 0.999;
     }
 
     // 正規化（0.0 ~ 1.0）
@@ -115,17 +115,12 @@ function draw(canvas, ctx, grid, seaLevel) {
             // 陸：標高と緯度による塗り分け
             const e = (h - seaLevel) / (1 - seaLevel);
             
-            if (latNormalized > 0.85) { // 極地
-                r = 240; g = 240; b = 255;
             } else if (e < 0.05) { // 砂浜
                 r = 230; g = 210; b = 160;
             } else if (e < 0.4) { // 平原
                 r = 80 + (e * 50); g = 150 - (e * 30); b = 70;
             } else if (e < 0.7) { // 山岳
                 r = 120; g = 110; b = 100;
-            } else { // 高山（雪）
-                r = 255; g = 255; b = 255;
-            }
         }
         
         const idx = i * 4;
