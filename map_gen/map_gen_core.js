@@ -156,7 +156,16 @@ class FaultMapGenerator {
       }
     }
 
-    this.normalize();
+    for (let y = 0; y < this.height; y++) {
+       for (let x = 0; x < this.width; x++) {
+         // 非常に小さいランダムな振れ幅を加える
+         const noise = (this.rng.next() - 0.5) * 0.01;
+         this.map[y][x] += noise;
+       }
+     }
+
+     this.normalize();
+     }
   }
 
   normalize() {
@@ -199,25 +208,45 @@ function randomizeAndRun() {
   run();
 }
 
+/* =========================
+   描画関数
+========================= */
 function drawMap(map, seaLevel) {
-  const img = ctx.createImageData(canvas.width, canvas.height);
+  const w = canvas.width;
+  const h = canvas.height;
+  const img = ctx.createImageData(w, h);
 
-  for (let y = 0; y < canvas.height; y++) {
-    for (let x = 0; x < canvas.width; x++) {
-      const h = map[y][x];
-      const i = (y * canvas.width + x) * 4;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const height = map[y][x];
+      const i = (y * w + x) * 4;
 
       let r, g, b;
-      if (h < seaLevel) {
-        const d = h / seaLevel;
-        r = 15;
-        g = 50 + d * 70;
-        b = 110 + d * 110;
+      
+      if (height < seaLevel) {
+        // --- 海 (深さで色を変える) ---
+        const d = height / seaLevel; // 0.0 (深) ～ 1.0 (浅)
+        if (d < 0.4) { // 深海
+          r = 10; g = 30; b = 80;
+        } else if (d < 0.8) { // 通常の海
+          r = 20; g = 60; b = 130;
+        } else { // 浅瀬
+          r = 40; g = 100; b = 180;
+        }
       } else {
-        const e = (h - seaLevel) / (1 - seaLevel);
-        r = 60 + e * 140;
-        g = 120 + e * 100;
-        b = 60 + e * 50;
+        // --- 陸 (標高でバイオームを変える) ---
+        const e = (height - seaLevel) / (1 - seaLevel); // 0.0 (海岸) ～ 1.0 (山頂)
+        
+        if (e < 0.05) { // 砂浜
+          r = 210; g = 190; b = 150;
+        } else if (e < 0.3) { // 平地・草原
+          r = 70 + e * 50; g = 140; b = 60;
+        } else if (e < 0.6) { // 高地・山
+          r = 120; g = 100; b = 80;
+        } else { // 雪山
+          const snow = 200 + (e - 0.6) * 130;
+          r = snow; g = snow; b = snow + 20;
+        }
       }
 
       img.data[i] = r;
