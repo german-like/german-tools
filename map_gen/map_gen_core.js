@@ -42,7 +42,7 @@ function run() {
         const grid = new Float32Array(width * height).fill(0.5);
 
         const iterations = 400; 
-        let displacement = 0.0001; 
+        let displacement = 0.01; 
 
         // --- 生成ロジック本体 ---
         for (let i = 0; i < iterations; i++) {
