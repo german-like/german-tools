@@ -97,40 +97,58 @@ function run() {
 function draw(canvas, ctx, grid, seaLevel) {
     const width = canvas.width;
     const height = canvas.height;
-    
     const imgData = ctx.createImageData(width, height);
-    const data = imgData.data; 
+    const data = imgData.data;
+
+    // ご提示のカラーパレットを定義（標高, HEXカラー）
+    const palette = [
+        [-2500, '#50D9FB'], // 深海
+        [-1,    '#B7E5FA'], // 浅瀬
+        [0,     '#1F4806'], // 海岸線（濃い緑）
+        [100,   '#68E36B'], // 低地
+        [150,   '#98D685'], // 草原
+        [300,   '#F9EFCD'], // 丘陵（砂・明るい色）
+        [800,   '#E0BB7D'], // 高地
+        [1000,  '#D3A62D'], // 山地
+        [2500,  '#997618'], // 高山
+        [3000,  '#705B10'], // 険しい山
+        [3500,  '#5F510D'], // 森林限界
+        [4000,  '#A56453'], // 岩場
+        [5000,  '#5C1D09'], // 高山岩壁
+        [5500,  '#FFFFFF']  // snow (白)
+    ];
+
+    // HEXをRGBに変換するヘルパー
+    const hexToRgb = (hex) => {
+        if (hex === '#FFFFFF' || hex === 'snow') return [255, 255, 255];
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        return [r, g, b];
+    };
 
     for (let i = 0; i < grid.length; i++) {
-        const h = grid[i]; // その地点の標高 (0.0 〜 1.0)
-        const y = Math.floor(i / width); // 緯度判定用
-        const latNormalized = Math.abs((y / height) * 2 - 1); // 赤道(0)〜極(1)
+        // 0.0~1.0 を -2500~5500 の範囲にマッピング
+        // ※seaLevelが0.5の時が標高0になるように調整すると使いやすいです
+        const rawH = grid[i];
+        const worldHeight = (rawH - seaLevel) * (rawH < seaLevel ? 5000 : 11000); 
+        // 海：-2500まで / 陸：5500まで くらいになるよう適宜調整
 
-        let r, g, b;
-
-        if (h < seaLevel) {
-            // --- 海の処理 (変更なし) ---
-            const d = h / seaLevel; // 海の深さ (0 〜 1)
-            r = 30; 
-            g = 60 + (d * 80); 
-            b = 120 + (d * 100);
-        } else {
-            // --- 陸地の処理 (ここが「茶色型」) ---
-            const e = (h - seaLevel) / (1 - seaLevel); // 陸の比率 (0 〜 1)
-            
-                r = 100 - (e * 30); // 緑の濃淡
-                g = 180 - (e * 120);
-                b = 80 - (e * 50);
+        // パレットから色を選択
+        let r = 255, g = 255, b = 255;
+        for (let j = 0; j < palette.length; j++) {
+            if (worldHeight <= palette[j][0] || j === palette.length - 1) {
+                [r, g, b] = hexToRgb(palette[j][1]);
+                break;
+            }
         }
 
-        // ImageData配列への書き込み
         const idx = i * 4;
-        data[idx]     = r;   // 赤
-        data[idx + 1] = g;   // 緑
-        data[idx + 2] = b;   // 青
-        data[idx + 3] = 255; // 透明度 (不透明)
+        data[idx] = r;
+        data[idx + 1] = g;
+        data[idx + 2] = b;
+        data[idx + 3] = 255;
     }
-
     ctx.putImageData(imgData, 0, 0);
 }
 
