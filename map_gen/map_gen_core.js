@@ -23,28 +23,36 @@ class Random {
    テクトニクス・ジェネレーター
 ========================= */
 
-function run() {
-    const msg = document.getElementById('loadingMsg');
-    
-    // 1. メッセージを表示
-    msg.style.display = 'inline';
+function run(e) {
+    if (e && e.preventDefault) e.preventDefault();
 
-    // 2. 画面描画を一度確定させるためにsetTimeoutを使う
+    const msg = document.getElementById('loadingMsg');
+    const canvas = document.getElementById('map');
+    const ctx = canvas.getContext('2d');
+    
+    if (msg) msg.style.display = 'inline';
+
     setTimeout(() => {
-        const canvas = document.getElementById('map');
-        const ctx = canvas.getContext('2d');
-        const seed = document.getElementById('seed').value;
+        const seedValue = document.getElementById('seed').value;
         const seaLevel = parseFloat(document.getElementById('seaLevel').value);
-        
-        const rng = new Random(seed);
+        const rng = new Random(seedValue);
         const width = canvas.width;
         const height = canvas.height;
         const grid = new Float32Array(width * height).fill(0.5);
 
-        const iterations = 400; 
-        let displacement = 0.01; 
+        // --- 【高速化】事前計算テーブル ---
+        const cosLon = new Float32Array(width);
+        const sinLon = new Float32Array(width);
+        for (let x = 0; x < width; x++) {
+            const lon = (x / width) * Math.PI * 2;
+            cosLon[x] = Math.cos(lon);
+            sinLon[x] = Math.sin(lon);
+        }
 
-        // --- 生成ロジック本体 ---
+        let iterations = 400; 
+        let displacement = 0.0075; 
+
+        // --- メインループ ---
         for (let i = 0; i < iterations; i++) {
             const pPhi = rng.next() * Math.PI * 2;
             const pTheta = Math.acos(2 * rng.next() - 1);
@@ -56,13 +64,18 @@ function run() {
                 const lat = (1.0 - y / height) * Math.PI;
                 const sinLat = Math.sin(lat);
                 const cosLat = Math.cos(lat);
+                
+                // xループ内で変わらない計算を外に出す
+                const wz_pz = cosLat * pz; 
                 const rowOffset = y * width;
+
                 for (let x = 0; x < width; x++) {
-                    const lon = (x / width) * Math.PI * 2;
-                    const wx = sinLat * Math.cos(lon);
-                    const wy = sinLat * Math.sin(lon);
-                    const wz = cosLat;
-                    if (wx * px + wy * py + wz * pz > 0) {
+                    // sin/cosの代わりにテーブルを参照
+                    const wx = sinLat * cosLon[x];
+                    const wy = sinLat * sinLon[x];
+
+                    // 内積による判定
+                    if (wx * px + wy * py + wz_pz > 0) {
                         grid[rowOffset + x] += displacement;
                     } else {
                         grid[rowOffset + x] -= displacement;
@@ -73,22 +86,24 @@ function run() {
         }
 
         // 正規化と描画
-        let min = Infinity, max = -Infinity;
-        for (let i = 0; i < grid.length; i++) {
-            if (grid[i] < min) min = grid[i];
-            if (grid[i] > max) max = grid[i];
-        }
-        const range = max - min || 1;
-        for (let i = 0; i < grid.length; i++) {
-            grid[i] = (grid[i] - min) / range;
-        }
-
+        normalize(grid);
         draw(canvas, ctx, grid, seaLevel);
 
-        // 3. 生成が終わったらメッセージを消す
-        msg.style.display = 'none';
-        
-    }, 10); // 10ミリ秒だけ待ってから計算開始
+        if (msg) msg.style.display = 'none';
+    }, 50);
+}
+
+// 正規化処理を別関数に分けるとスッキリします
+function normalize(grid) {
+    let min = Infinity, max = -Infinity;
+    for (let i = 0; i < grid.length; i++) {
+        if (grid[i] < min) min = grid[i];
+        if (grid[i] > max) max = grid[i];
+    }
+    const range = max - min || 1;
+    for (let i = 0; i < grid.length; i++) {
+        grid[i] = (grid[i] - min) / range;
+    }
 }
 
 /* =========================
