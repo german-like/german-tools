@@ -118,7 +118,7 @@ function draw(canvas, ctx, grid, seaLevel) {
             // --- 陸地の処理 (ここが「茶色型」) ---
             const e = (h - seaLevel) / (1 - seaLevel); // 陸の比率 (0 〜 1)
             
-                r = 100 + (e * 100); // 緑の濃淡
+                r = 100 + (e * 150); // 緑の濃淡
                 g = 180 + (e * 70);
                 b = 80;
         }
