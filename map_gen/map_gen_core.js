@@ -1,227 +1,157 @@
 /* =========================
-   RNG（シード対応）
+   RNG & Simplex Noise クラス
 ========================= */
-class RNG {
-  constructor(seed) {
-    this.seed = seed >>> 0;
-  }
-  next() {
-    this.seed = (this.seed * 1664525 + 1013904223) >>> 0;
-    return this.seed / 0xffffffff;
-  }
-}
-
-/* =========================
-   大陸マスク（楕円の縁をぼかす修正）
-========================= */
-function generateContinentMask(width, height, rng) {
-  const mask = new Float32Array(width * height);
-  const continents = 2 + Math.floor(rng.next() * 3);
-  const blobs = [];
-
-  for (let i = 0; i < continents; i++) {
-    blobs.push({
-      x: rng.next() * width,
-      y: rng.next() * height,
-      rx: width * (0.2 + rng.next() * 0.25),
-      ry: height * (0.2 + rng.next() * 0.25),
-      rot: rng.next() * Math.PI
-    });
-  }
-
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      let v = 0;
-      for (const b of blobs) {
-        const dx = x - b.x;
-        const dy = y - b.y;
-        const cos = Math.cos(b.rot);
-        const sin = Math.sin(b.rot);
-        const lx = dx * cos + dy * sin;
-        const ly = -dx * sin + dy * cos;
-        const d = (lx * lx) / (b.rx * b.rx) + (ly * ly) / (b.ry * b.ry);
-        // ここで 1-d を計算し、0以下にならないようにする
-        if (d < 1) v = Math.max(v, 1 - d);
-      }
-      mask[y * width + x] = v;
+class Random {
+    constructor(seed) {
+        this.seed = typeof seed === 'string' ? this.hashString(seed) : seed >>> 0;
     }
-  }
-  return mask;
-}
-
-/* =========================
-   断層地形ジェネレーター（1次元配列版）
-========================= */
-class FaultMapGenerator {
-  constructor(width, height, rng) {
-    this.width = width;
-    this.height = height;
-    this.rng = rng;
-    this.grid = new Float32Array(width * height).fill(0);
-  }
-
-  applyFaultCurved(displacement) {
-    const cx = this.rng.next() * this.width;
-    const cy = this.rng.next() * this.height;
-    const angle = this.rng.next() * Math.PI * 2;
-    const dx = Math.cos(angle);
-    const dy = Math.sin(angle);
-    const faultWidth = 20 + this.rng.next() * 40;
-
-    for (let i = 0; i < this.grid.length; i++) {
-      const x = i % this.width;
-      const y = Math.floor(i / this.width);
-      const px = x - cx;
-      const py = y - cy;
-      const dist = px * dy - py * dx;
-      this.grid[i] += Math.sign(dist) * displacement * (1 - Math.exp(-Math.abs(dist) / faultWidth));
-    }
-  }
-
-  // 水流浸食（少し軽量化）
-  applyErosion(iterations) {
-    for (let i = 0; i < iterations; i++) {
-      let x = this.rng.next() * (this.width - 1);
-      let y = this.rng.next() * (this.height - 1);
-      let sediment = 0;
-      let water = 1.0;
-      let dirX = 0, dirY = 0;
-
-      for (let step = 0; step < 20; step++) {
-        const ix = Math.floor(x), iy = Math.floor(y);
-        const idx = iy * this.width + ix;
-        if (idx < 0 || idx >= this.grid.length - this.width - 1) break;
-
-        const gX = this.grid[idx + 1] - this.grid[idx];
-        const gY = this.grid[idx + this.width] - this.grid[idx];
-        dirX = dirX * 0.2 - gX * 0.8;
-        dirY = dirY * 0.2 - gY * 0.8;
-        x += dirX; y += dirY;
-
-        if (x < 0 || x >= this.width - 1 || y < 0 || y >= this.height - 1) break;
-
-        const newIdx = Math.floor(y) * this.width + Math.floor(x);
-        const diff = this.grid[newIdx] - this.grid[idx];
-        const capacity = Math.max(-diff, 0.01) * water * 5.0;
-
-        if (sediment > capacity) {
-          const drop = (sediment - capacity) * 0.3;
-          this.grid[idx] += drop;
-          sediment -= drop;
-        } else {
-          const uplift = (capacity - sediment) * 0.3;
-          this.grid[idx] -= uplift;
-          sediment += uplift;
+    hashString(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            hash = ((hash << 5) - hash) + str.charCodeAt(i);
+            hash |= 0;
         }
-        water *= 0.95;
-      }
+        return Math.abs(hash);
     }
-  }
-
-  generate(iterations = 200) {
-    const mask = generateContinentMask(this.width, this.height, this.rng);
-
-    // 1. 初期化
-    for (let i = 0; i < this.grid.length; i++) {
-      this.grid[i] = mask[i] > 0 ? mask[i] : -0.2;
+    next() {
+        this.seed = (this.seed * 1664525 + 1013904223) >>> 0;
+        return this.seed / 0xffffffff;
     }
+}
 
-    // 2. 断層
-    let d = 0.5;
-    for (let i = 0; i < iterations; i++) {
-      this.applyFaultCurved(d);
-      d *= 0.998;
+class SimplexNoise {
+    constructor(random) {
+        this.p = new Uint8Array(256);
+        this.perm = new Uint8Array(512);
+        this.permMod12 = new Uint8Array(512);
+        for (let i = 0; i < 256; i++) this.p[i] = i;
+        for (let i = 255; i > 0; i--) {
+            const r = Math.floor(random.next() * (i + 1));
+            [this.p[i], this.p[r]] = [this.p[r], this.p[i]];
+        }
+        for (let i = 0; i < 512; i++) {
+            this.perm[i] = this.p[i & 255];
+            this.permMod12[i] = this.perm[i] % 12;
+        }
+        this.grad3 = [[1,1,0],[-1,1,0],[1,-1,0],[-1,-1,0],[1,0,1],[-1,0,1],[1,0,-1],[-1,0,-1],[0,1,1],[0,-1,1],[0,1,-1],[0,-1,-1]];
     }
-
-    // 3. 浸食（重いので回数を調整）
-    this.applyErosion(30000);
-
-    // 4. マスク適用（ここで楕円の切れ端を消す）
-    for (let i = 0; i < this.grid.length; i++) {
-      const m = mask[i];
-      // 楕円の外側（m=0）は強制的に沈めるのではなく、徐々に深くする
-      const smoothMask = Math.pow(m, 0.5); 
-      if (m <= 0) {
-        this.grid[i] = -0.5 + (this.rng.next() * 0.05); // 深海
-      } else {
-        this.grid[i] *= (0.4 + smoothMask);
-      }
+    dot(g, x, y, z) { return g[0]*x + g[1]*y + g[2]*z; }
+    noise3D(xin, yin, zin) {
+        let n0, n1, n2, n3;
+        const F3 = 1.0/3.0;
+        const s = (xin+yin+zin)*F3;
+        const i = Math.floor(xin+s), j = Math.floor(yin+s), k = Math.floor(zin+s);
+        const G3 = 1.0/6.0;
+        const t = (i+j+k)*G3;
+        const x0 = xin-(i-t), y0 = yin-(j-t), z0 = zin-(k-t);
+        let i1, j1, k1, i2, j2, k2;
+        if(x0>=y0) {
+            if(y0>=z0) { i1=1; j1=0; k1=0; i2=1; j2=1; k2=0; }
+            else if(x0>=z0) { i1=1; j1=0; k1=0; i2=1; j2=0; k2=1; }
+            else { i1=0; j1=0; k1=1; i2=1; j2=0; k2=1; }
+        } else {
+            if(y0<z0) { i1=0; j1=0; k1=1; i2=0; j2=1; k2=1; }
+            else if(x0<z0) { i1=0; j1=1; k1=0; i2=0; j2=1; k2=1; }
+            else { i1=0; j1=1; k1=0; i2=1; j2=1; k2=0; }
+        }
+        const x1 = x0-i1+G3, y1 = y0-j1+G3, z1 = z0-k1+G3;
+        const x2 = x0-i2+2.0*G3, y2 = y0-j2+2.0*G3, z2 = z0-k2+2.0*G3;
+        const x3 = x0-1.0+3.0*G3, y3 = y0-1.0+3.0*G3, z3 = z0-1.0+3.0*G3;
+        const ii = i&255, jj = j&255, kk = k&255;
+        const g0 = this.grad3[this.permMod12[ii+this.perm[jj+this.perm[kk]]]];
+        const g1 = this.grad3[this.permMod12[ii+i1+this.perm[jj+j1+this.perm[kk+k1]]]];
+        const g2 = this.grad3[this.permMod12[ii+i2+this.perm[jj+j2+this.perm[kk+k2]]]];
+        const g3 = this.grad3[this.permMod12[ii+1+this.perm[jj+1+this.perm[kk+1]]]];
+        let t0 = 0.6-x0*x0-y0*y0-z0*z0; n0 = t0<0 ? 0 : Math.pow(t0,4)*this.dot(g0,x0,y0,z0);
+        let t1 = 0.6-x1*x1-y1*y1-z1*z1; n1 = t1<0 ? 0 : Math.pow(t1,4)*this.dot(g1,x1,y1,z1);
+        let t2 = 0.6-x2*x2-y2*y2-z2*z2; n2 = t2<0 ? 0 : Math.pow(t2,4)*this.dot(g2,x2,y2,z2);
+        let t3 = 0.6-x3*x3-y3*y3-z3*z3; n3 = t3<0 ? 0 : Math.pow(t3,4)*this.dot(g3,x3,y3,z3);
+        return 32.0 * (n0 + n1 + n2 + n3);
     }
-
-    this.normalize();
-  }
-
-  normalize() {
-    let min = 100, max = -100;
-    for (let i = 0; i < this.grid.length; i++) {
-      if (this.grid[i] < min) min = this.grid[i];
-      if (this.grid[i] > max) max = this.grid[i];
-    }
-    const range = max - min || 1;
-    for (let i = 0; i < this.grid.length; i++) {
-      this.grid[i] = (this.grid[i] - min) / range;
-    }
-  }
 }
 
 /* =========================
-   実行と描画
+   メインジェネレーター
 ========================= */
-function run() {
-  const canvas = document.getElementById("map");
-  const ctx = canvas.getContext("2d");
-  const seedValue = parseInt(document.getElementById("seed").value) || 12345;
-  const seaLevel = parseFloat(document.getElementById("seaLevel").value);
+const PALETTE = {
+    deep: [20, 50, 120], sea: [50, 100, 190], shallow: [80, 150, 220],
+    sand: [240, 230, 180], grass: [100, 180, 80], forest: [50, 120, 40],
+    rock: [140, 130, 120], snow: [255, 255, 255]
+};
 
-  const rng = new RNG(seedValue);
-  const gen = new FaultMapGenerator(canvas.width, canvas.height, rng);
-  gen.generate();
-  drawMap(canvas, ctx, gen.grid, seaLevel);
+function run() {
+    const canvas = document.getElementById('map');
+    const ctx = canvas.getContext('2d');
+    const seed = document.getElementById('seed').value;
+    const seaLevel = parseFloat(document.getElementById('seaLevel').value);
+    
+    const rng = new Random(seed);
+    const noise = new SimplexNoise(rng);
+    const width = canvas.width;
+    const height = canvas.height;
+    const grid = new Float32Array(width * height);
+
+    // 1. Simplex Noise による生成 (Octaves: 6)
+    const octaves = 6;
+    for (let y = 0; y < height; y++) {
+        const ny = (y / height) * 2 - 1;
+        const cy = ny * 1.5; // 縦の歪み調整
+        for (let x = 0; x < width; x++) {
+            const theta = (x / width) * Math.PI * 2;
+            const cx = Math.cos(theta);
+            const cz = Math.sin(theta);
+            
+            let amplitude = 1, frequency = 0.8, noiseValue = 0, maxValue = 0;
+            for (let o = 0; o < octaves; o++) {
+                noiseValue += noise.noise3D(cx * frequency, cy * frequency, cz * frequency) * amplitude;
+                maxValue += amplitude;
+                amplitude *= 0.5; frequency *= 2.1;
+            }
+            grid[y * width + x] = (noiseValue / maxValue + 1) / 2;
+        }
+    }
+
+    // 2. 描画
+    const imgData = ctx.createImageData(width, height);
+    for (let i = 0; i < grid.length; i++) {
+        const h = grid[i];
+        const y = Math.floor(i / width);
+        const lat = Math.abs((y / height) * 2 - 1); // 南北の緯度
+        let color;
+
+        if (h < seaLevel) {
+            const d = h / seaLevel;
+            color = d < 0.4 ? PALETTE.deep : (d < 0.8 ? PALETTE.sea : PALETTE.shallow);
+        } else {
+            const l = (h - seaLevel) / (1 - seaLevel);
+            // 緯度が高い（両極）ほど雪が降りやすい
+            if (lat > 0.85 - (l * 0.1)) color = PALETTE.snow;
+            else if (l < 0.05) color = PALETTE.sand;
+            else if (l < 0.4) color = PALETTE.grass;
+            else if (l < 0.7) color = PALETTE.forest;
+            else color = PALETTE.rock;
+        }
+
+        const px = i * 4;
+        imgData.data[px] = color[0];
+        imgData.data[px+1] = color[1];
+        imgData.data[px+2] = color[2];
+        imgData.data[px+3] = 255;
+    }
+    ctx.putImageData(imgData, 0, 0);
 }
 
 function randomizeAndRun() {
-  document.getElementById("seed").value = Math.floor(Math.random() * 1e9);
-  run();
-}
-
-function drawMap(canvas, ctx, grid, seaLevel) {
-  const w = canvas.width;
-  const h = canvas.height;
-  const img = ctx.createImageData(w, h);
-
-  for (let i = 0; i < grid.length; i++) {
-    const height = grid[i];
-    const px = (i * 4);
-
-    let r, g, b;
-    if (height < seaLevel) {
-      const d = height / (seaLevel || 0.01);
-      if (d < 0.4) { r = 10; g = 35; b = 90; }
-      else if (d < 0.8) { r = 25; g = 70; b = 150; }
-      else { r = 50; g = 120; b = 200; } // 浅瀬
-    } else {
-      const e = (height - seaLevel) / (1 - seaLevel || 0.01);
-      if (e < 0.03) { r = 220; g = 200; b = 160; } // 砂浜
-      else if (e < 0.25) { r = 70 + e*100; g = 150; b = 60; } // 草原
-      else if (e < 0.6) { r = 110; g = 100; b = 80; } // 岩場
-      else { const s = 220 + (e-0.6)*80; r = s; g = s; b = s+10; } // 雪
-    }
-
-    img.data[px] = r;
-    img.data[px + 1] = g;
-    img.data[px + 2] = b;
-    img.data[px + 3] = 255;
-  }
-  ctx.putImageData(img, 0, 0);
+    document.getElementById("seed").value = Math.floor(Math.random() * 1e9);
+    run();
 }
 
 function downloadMap() {
-  const canvas = document.getElementById("map");
-  const link = document.createElement("a");
-  link.download = "world.png";
-  link.href = canvas.toDataURL();
-  link.click();
+    const canvas = document.getElementById("map");
+    const link = document.createElement("a");
+    link.download = "simplex_world.png";
+    link.href = canvas.toDataURL();
+    link.click();
 }
 
-// 初回実行
-window.onload = run;
+window.onload = run();
