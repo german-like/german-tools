@@ -1,4 +1,4 @@
-const inputRange = document.getElementById("inputRange");
+const inputRange = document.getElementById("sealevel");
 const activeColor = "#133343";
 const inactiveColor = "#ffffff";
 
