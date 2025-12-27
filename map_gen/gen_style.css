@@ -18,7 +18,6 @@ button:not(.randomize) {
   display: flex; /* 要素を横並びにする */
   align-items: center; /* 垂直方向中央に揃える */
   gap: 10px; /* 要素間の隙間 */
-  background: black; /* debug */
 }
 
 .input,
@@ -31,7 +30,8 @@ button:not(.randomize) {
 
 .input {
   /* テキストボックスの幅を調整 */
-  width: 70%;
+  width: 80%;
+  height: 40px;
 }
 
 .randomize {
@@ -40,6 +40,7 @@ button:not(.randomize) {
   cursor: pointer;
   transition: background-color 0.3s;
   width: 20%;
+  height: 40px;
 }
 
 .randomize:hover {
