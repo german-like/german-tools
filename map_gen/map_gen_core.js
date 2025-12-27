@@ -50,7 +50,7 @@ function run(e) {
         }
 
         let iterations = 1000; 
-        let displacement = 0.001; 
+        let displacement = 0.0005; 
 
         // --- メインループ ---
         for (let i = 0; i < iterations; i++) {
@@ -180,4 +180,4 @@ function downloadMap() {
     link.click();
 }
 
-window.onload = run;
+window.onload = randomizeAndRun;
