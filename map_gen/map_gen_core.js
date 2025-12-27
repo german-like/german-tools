@@ -117,64 +117,51 @@ function draw(canvas, ctx, grid, seaLevel) {
     
     const mode = document.getElementById('colorMode').value;
 
-    // --- 指定のパレット ---
+    // パレット
     const palette = [
-        [-1500, '#4c878e'], // 深海
-        [-1000, '#6fb2bd'], // 漸深海
-        [-500, '#7fd5db'],  // 中深海
-        [-1,    '#B7E5FA'], // 浅瀬
-        [0,     '#E0FEDE'], // 海岸線
-        [100,   '#68E36B'], // 低地
-        [150,   '#98D685'], // 草原
-        [300,   '#F9EFCD'], // 丘陵
-        [800,   '#E0BB7D'], // 高地
-        [1000,  '#D3A62D'], // 山地
-        [1500,  '#997618'], // 高山
-        [3000,  '#474610'], // 険山
-        [4500,  '#324228'], // 森林限界
-        [5000,  '#efefff']  // 岩石・雪山
+        [-1500, '#4c878e'], [-1000, '#6fb2bd'], [-500, '#7fd5db'],
+        [-1,    '#B7E5FA'], [0,     '#E0FEDE'], [100,   '#68E36B'],
+        [150,   '#98D685'], [300,   '#F9EFCD'], [800,   '#E0BB7D'],
+        [1000,  '#D3A62D'], [1500,  '#997618'], [3000,  '#474610'],
+        [4500,  '#324228'], [5000,  '#efefff']
     ];
 
     const hexToRgb = (hex) => {
-        return [
-            parseInt(hex.slice(1, 3), 16),
-            parseInt(hex.slice(3, 5), 16),
-            parseInt(hex.slice(5, 7), 16)
-        ];
+        return [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)];
     };
 
     for (let i = 0; i < grid.length; i++) {
         const h = grid[i];
         let r, g, b;
 
-        if (mode === 'grayscale') {
-            const val = h * 255;
-            r = g = b = val;
-        } else if (mode === 'landmask') {
+        // 標高をメートルスケールに変換
+        const worldH = (h - seaLevel) * (h < seaLevel ? 1500 / seaLevel : 5000 / (1 - seaLevel));
+
+        if (mode === 'landmask') {
             const val = h >= seaLevel ? 255 : 0;
             r = g = b = val;
         } else {
-            // --- 塗り分け方式（ステップ） ---
-            const worldH = (h - seaLevel) * (h < seaLevel ? 1500 / seaLevel : 5000 / (1 - seaLevel));
-
-            // デフォルトの色（一番高い場所の色）
-            let chosenHex = palette[palette.length - 1][1];
-
-            // 下から順番にチェックして、該当する高さの色で止める
+            // --- ステップ判定ロジック ---
+            let stepIndex = palette.length - 1; // デフォルトは最高地点
             for (let j = 0; j < palette.length; j++) {
                 if (worldH <= palette[j][0]) {
-                    chosenHex = palette[j][1];
+                    stepIndex = j;
                     break;
                 }
             }
-            [r, g, b] = hexToRgb(chosenHex);
+
+            if (mode === 'grayscale') {
+                // グレースケール
+                const val = (stepIndex / (palette.length - 1)) * 255;
+                r = g = b = val;
+            } else {
+                // 標高地図
+                [r, g, b] = hexToRgb(palette[stepIndex][1]);
+            }
         }
 
         const idx = i * 4;
-        data[idx] = r;
-        data[idx + 1] = g;
-        data[idx + 2] = b;
-        data[idx + 3] = 255;
+        data[idx] = r; data[idx+1] = g; data[idx+2] = b; data[idx+3] = 255;
     }
     ctx.putImageData(imgData, 0, 0);
 }
