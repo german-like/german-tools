@@ -117,7 +117,7 @@ function draw(canvas, ctx, grid, seaLevel) {
     
     const mode = document.getElementById('colorMode').value;
 
-    // --- 新しいカスタムパレット ---
+    // --- 指定のパレット ---
     const palette = [
         [-1500, '#4c878e'], // 深海
         [-1000, '#6fb2bd'], // 漸深海
@@ -154,28 +154,20 @@ function draw(canvas, ctx, grid, seaLevel) {
             const val = h >= seaLevel ? 255 : 0;
             r = g = b = val;
         } else {
-            // 標高地図モード
-            // パレットの範囲に合わせてスケーリング (-1500m 〜 5000m)
+            // --- 塗り分け方式（ステップ） ---
             const worldH = (h - seaLevel) * (h < seaLevel ? 1500 / seaLevel : 5000 / (1 - seaLevel));
 
-            if (worldH <= palette[0][0]) {
-                [r, g, b] = hexToRgb(palette[0][1]);
-            } else if (worldH >= palette[palette.length - 1][0]) {
-                [r, g, b] = hexToRgb(palette[palette.length - 1][1]);
-            } else {
-                // 線形補間（Lerp）計算
-                for (let j = 0; j < palette.length - 1; j++) {
-                    if (worldH >= palette[j][0] && worldH <= palette[j + 1][0]) {
-                        const c1 = hexToRgb(palette[j][1]);
-                        const c2 = hexToRgb(palette[j + 1][1]);
-                        const t = (worldH - palette[j][0]) / (palette[j + 1][0] - palette[j][0]);
-                        r = c1[0] + (c2[0] - c1[0]) * t;
-                        g = c1[1] + (c2[1] - c1[1]) * t;
-                        b = c1[2] + (c2[2] - c1[2]) * t;
-                        break;
-                    }
+            // デフォルトの色（一番高い場所の色）
+            let chosenHex = palette[palette.length - 1][1];
+
+            // 下から順番にチェックして、該当する高さの色で止める
+            for (let j = 0; j < palette.length; j++) {
+                if (worldH <= palette[j][0]) {
+                    chosenHex = palette[j][1];
+                    break;
                 }
             }
+            [r, g, b] = hexToRgb(chosenHex);
         }
 
         const idx = i * 4;
