@@ -49,8 +49,8 @@ function run(e) {
             sinLon[x] = Math.sin(lon);
         }
 
-        let iterations = 800; 
-        let displacement = 0.0005; 
+        let iterations = 1000; 
+        let displacement = 0.001; 
 
         // --- メインループ ---
         for (let i = 0; i < iterations; i++) {
