@@ -114,12 +114,14 @@ function draw(canvas, ctx, grid, seaLevel) {
     const height = canvas.height;
     const imgData = ctx.createImageData(width, height);
     const data = imgData.data;
+    
+    const mode = document.getElementById('colorMode').value;
 
-    // ご提示のカラーパレットを定義（標高, HEXカラー）
+    // --- 新しいカスタムパレット ---
     const palette = [
         [-1500, '#4c878e'], // 深海
         [-1000, '#6fb2bd'], // 漸深海
-        [-500, '#7fd5db'], // 中深海
+        [-500, '#7fd5db'],  // 中深海
         [-1,    '#B7E5FA'], // 浅瀬
         [0,     '#E0FEDE'], // 海岸線
         [100,   '#68E36B'], // 低地
@@ -130,31 +132,49 @@ function draw(canvas, ctx, grid, seaLevel) {
         [1500,  '#997618'], // 高山
         [3000,  '#474610'], // 険山
         [4500,  '#324228'], // 森林限界
-        [5000,  '#efefff'], // 岩石・雪山
-        ];
+        [5000,  '#efefff']  // 岩石・雪山
+    ];
 
-    // HEXをRGBに変換するヘルパー
     const hexToRgb = (hex) => {
-        if (hex === '#FFFFFF' || hex === 'snow') return [255, 255, 255];
-        const r = parseInt(hex.slice(1, 3), 16);
-        const g = parseInt(hex.slice(3, 5), 16);
-        const b = parseInt(hex.slice(5, 7), 16);
-        return [r, g, b];
+        return [
+            parseInt(hex.slice(1, 3), 16),
+            parseInt(hex.slice(3, 5), 16),
+            parseInt(hex.slice(5, 7), 16)
+        ];
     };
 
     for (let i = 0; i < grid.length; i++) {
-        // 0.0~1.0 を -2500~5500 の範囲にマッピング
-        // ※seaLevelが0.5の時が標高0になるように調整すると使いやすいです
-        const rawH = grid[i];
-        const worldHeight = (rawH - seaLevel) * (rawH < seaLevel ? 5000 : 11000); 
-        // 海：-2500まで / 陸：5500まで くらいになるよう適宜調整
+        const h = grid[i];
+        let r, g, b;
 
-        // パレットから色を選択
-        let r = 255, g = 255, b = 255;
-        for (let j = 0; j < palette.length; j++) {
-            if (worldHeight <= palette[j][0] || j === palette.length - 1) {
-                [r, g, b] = hexToRgb(palette[j][1]);
-                break;
+        if (mode === 'grayscale') {
+            const val = h * 255;
+            r = g = b = val;
+        } else if (mode === 'landmask') {
+            const val = h >= seaLevel ? 255 : 0;
+            r = g = b = val;
+        } else {
+            // 標高地図モード
+            // パレットの範囲に合わせてスケーリング (-1500m 〜 5000m)
+            const worldH = (h - seaLevel) * (h < seaLevel ? 1500 / seaLevel : 5000 / (1 - seaLevel));
+
+            if (worldH <= palette[0][0]) {
+                [r, g, b] = hexToRgb(palette[0][1]);
+            } else if (worldH >= palette[palette.length - 1][0]) {
+                [r, g, b] = hexToRgb(palette[palette.length - 1][1]);
+            } else {
+                // 線形補間（Lerp）計算
+                for (let j = 0; j < palette.length - 1; j++) {
+                    if (worldH >= palette[j][0] && worldH <= palette[j + 1][0]) {
+                        const c1 = hexToRgb(palette[j][1]);
+                        const c2 = hexToRgb(palette[j + 1][1]);
+                        const t = (worldH - palette[j][0]) / (palette[j + 1][0] - palette[j][0]);
+                        r = c1[0] + (c2[0] - c1[0]) * t;
+                        g = c1[1] + (c2[1] - c1[1]) * t;
+                        b = c1[2] + (c2[2] - c1[2]) * t;
+                        break;
+                    }
+                }
             }
         }
 
@@ -165,6 +185,10 @@ function draw(canvas, ctx, grid, seaLevel) {
         data[idx + 3] = 255;
     }
     ctx.putImageData(imgData, 0, 0);
+}
+
+function randomize() {
+   document.getElementById("seed").value = Math.floor(Math.random() * 1e9);
 }
 
 function randomizeAndRun() {
