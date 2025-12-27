@@ -16,9 +16,9 @@ button {
 
 .container {
   display: flex; /* 要素を横並びにする */
-  flex-grow: 1;
   align-items: center; /* 垂直方向中央に揃える */
   gap: 10px; /* 要素間の隙間 */
+  background: black; /* debug */
 }
 
 .input,
