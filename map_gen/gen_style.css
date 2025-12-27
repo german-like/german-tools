@@ -15,6 +15,7 @@ button {
 }
 
 .container {
+  padding: 0;
   display: flex; /* 要素を横並びにする */
   align-items: center; /* 垂直方向中央に揃える */
   gap: 10px; /* 要素間の隙間 */
