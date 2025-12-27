@@ -183,4 +183,4 @@ function downloadMap() {
     link.click();
 }
 
-window.onload = randomizeAndRun;
+window.onload = randomizeAndRun();
