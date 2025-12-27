@@ -14,6 +14,13 @@
     <label>海水面: <input type="range" id="seaLevel" min="0" max="1" step="0.01" value="0.7"></label>
     シード: <input type="number" id="seed" value="12345">
 
+    <label for="colorMode">パレット:</label>
+        <select id="colorMode" onchange="run()">
+        <option value="hypsometric">アトラス (Atlas)</option>
+        <option value="grayscale">グレースケール (Heightmap)</option>
+        <option value="landmask">ランドマスク (Land Mask)</option>
+    </select>
+
     <button onclick="run()">現在のシードで生成</button>
     <button onclick="randomizeAndRun()" style="background-color: #4CAF50; color: white;">🎲 ランダム生成</button>
     <button onclick="downloadMap()">ダウンロード</button>
