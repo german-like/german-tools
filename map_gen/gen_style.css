@@ -14,10 +14,34 @@ button {
   color: white;
 }
 
-#randomize {
-  background: #69d667;
-  border: none;
-  width: 20%;
+.container {
+  display: flex; /* 要素を横並びにする */
+  align-items: center; /* 垂直方向中央に揃える */
+  gap: 10px; /* 要素間の隙間 */
+}
+
+.input,
+.randomize {
+  padding: 10px 15px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+.input {
+  /* テキストボックスの幅を調整 */
+  flex-grow: 1;
+}
+
+.randomize {
+  background-color: #007bff;
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.randomize:hover {
+  background-color: #0056b3;
 }
 
 #download {
