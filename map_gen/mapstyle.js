@@ -1,6 +1,6 @@
 const inputRange = document.getElementById("inputRange");
-const activeColor = "#377494";
-const inactiveColor = "#dddddd";
+const activeColor = "#133343";
+const inactiveColor = "#ffffff";
 
 inputRange.addEventListener("input", function() {
   const ratio = (this.value - this.min) / (this.max - this.min) * 100;
