@@ -31,7 +31,7 @@ button {
 
 .input {
   /* テキストボックスの幅を調整 */
-  flex-grow: 1;
+  width: 70%;
 }
 
 .randomize {
@@ -39,6 +39,7 @@ button {
   color: white;
   cursor: pointer;
   transition: background-color 0.3s;
+  width: 20%;
 }
 
 .randomize:hover {
