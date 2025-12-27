@@ -13,18 +13,20 @@
   </header>
   <div id="side_bar">
     <label>海水面: <input type="range" id="seaLevel" class="sealevel" min="0" max="1" step="0.01" value="0.7"></label>
+    <br>
     シード: <input type="number" id="seed" value="12345">
-
+    <br>
     <label for="colorMode">パレット:</label>
         <select id="colorMode" onchange="run()">
         <option value="hypsometric">アトラス (Atlas)</option>
         <option value="grayscale">グレースケール (Heightmap)</option>
         <option value="landmask">ランドマスク (Land Mask)</option>
     </select>
-
-    <button onclick="run()">現在のシードで生成</button>
-    <button onclick="randomize()" style="background-color: #4CAF50; color: white;">🎲</button>
-    <button onclick="downloadMap()">ダウンロード</button>
+    <br>
+    <button onclick="run()" class="run">現在のシードで生成</button>
+    <button onclick="randomize()" class="run" id="randomize">🎲</button>
+    <br>
+    <button onclick="downloadMap()" id="download">ダウンロード</button>
   </div>
   <main>
       <span id="loadingMsg" style="color: #666; margin-left: 10px; display: none;">Wait a minute...</span>
