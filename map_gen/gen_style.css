@@ -5,23 +5,27 @@ button {
   height: 40px;
   border: 1px solid #333333;
   border-radius: 3px;
+  margin: 5px;
 }
 
 .run {
   background: #bf080e;
   border: none;
   color: white;
+  width: 75%;
 }
 
 #randomize {
   background: #69d667;
   border: none;
+  width: 20%;
 }
 
 .download {
   background: #424242;
   border: none;
   color: white;
+  height: 20px;
 }
 
 /* ===== レンジ ===== */
