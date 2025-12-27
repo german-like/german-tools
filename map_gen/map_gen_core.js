@@ -50,7 +50,7 @@ function run(e) {
         }
 
         let iterations = 800; 
-        let displacement = 0.0075; 
+        let displacement = 0.0005; 
 
         // --- メインループ ---
         for (let i = 0; i < iterations; i++) {
