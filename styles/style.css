@@ -81,6 +81,11 @@ a {
   color: #6a75c4;
 }
 
+.home {
+  text-decoration: none;
+  color: #ffffff;
+}
+
 footer {
   grid-column: 1 / -1;
   background-color: #e5e7eb;
