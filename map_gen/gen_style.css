@@ -15,11 +15,8 @@ button,select {
 }
 
 .container {
-  display: flex; /* 要素を横並びにする */
-  align-items: center; /* 垂直方向中央に揃える */
-  width: 100%;
-  gap: 10px; /* 要素間の隙間 */
-  background: black;
+  display: flex;
+  gap: 5px;
 }
 
 .input,
@@ -37,13 +34,9 @@ button,select {
 }
 
 .randomize {
-  background-color: #007bff;
-  color: white;
+  width: 40px; 
+  padding: 0; 
   cursor: pointer;
-  transition: background-color 0.3s;
-  width: 40px;  /* 高さと同じ値に設定 */
-  height: 40px; 
-  padding: 0;   /* 余計な余白を消して正方形を維持 */
 }
 
 .randomize:hover {
