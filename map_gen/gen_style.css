@@ -30,7 +30,7 @@ button,select {
 
 .input {
   /* テキストボックスの幅を調整 */
-  width: 70%;
+  width: 100%;
   height: 40px;
 }
 
