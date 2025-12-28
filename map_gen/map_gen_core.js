@@ -14,7 +14,7 @@ class Random {
         return Math.abs(hash);
     }
     next() {
-        this.seed = (this.seed * 1625 + 1023) >>> 0;
+        this.seed = (this.seed * 4294967295 + 65537) >>> 0;
         return this.seed / 0xffffffff;
     }
 }
