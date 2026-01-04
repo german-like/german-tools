@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <link href="../styles/style.css" rel="stylesheet">
+    <link href="./cli_style.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>German Tools - 創作支援ツール</title>
+</head>
+<body>
+  <header>
+    <a href="../index.html" class="anchor">German Tools - 創作支援ツール</a>
+  </header>
+  <div id="side_bar">
+    <input type="file" id="image_file" name="image_file" accept="image/*">
+    <! --- 必要なものを追加 --->
+    <br>
+    <button onclick="run()" class="run">現在のシードで生成</button>
+    <br>
+    <button onclick="downloadMap()" id="download">ダウンロード</button>
+  </div>
+  <main>
+      <span id="loadingMsg" style="color: #666; margin-left: 10px; display: none;">Wait a minute...</span>
+      <canvas id="map" width="1000" height="500"></canvas>
+  </main>
+  <footer>
+    <! --- フッター --->
+  </footer>
+<script src="cli_gen_core.js"></script>
+<script src="cli_style.js"></script>
+</body>
+</html>
