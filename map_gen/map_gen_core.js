@@ -50,7 +50,7 @@ function run(e) {
         }
 
         let iterations = 1000; 
-        let displacement = 0.00001; 
+        let displacement = 0.0001; 
 
         // --- メインループ ---
         for (let i = 0; i < iterations; i++) {
@@ -82,7 +82,7 @@ function run(e) {
                     }
                 }
             }
-            displacement *= 0.999;
+            displacement *= 0.9999;
         }
 
         // 正規化と描画
@@ -121,9 +121,8 @@ function draw(canvas, ctx, grid, seaLevel) {
     const palette = [
         [-1500, '#4c878e'], [-1000, '#6fb2bd'], [-500, '#7fd5db'],
         [-1,    '#B7E5FA'], [0,     '#E0FEDE'], [100,   '#68E36B'],
-        [150,   '#98D685'], [300,   '#F9EFCD'], [800,   '#E0BB7D'],
-        [1000,  '#D3A62D'], [1500,  '#997618'], [3000,  '#474610'],
-        [4500,  '#324228'], [5000,  '#efefff']
+        [500,   '#F9EFCD'], [1000,  '#D3A62D'], [1500,  '#997618'], 
+        [3000,  '#474610'], [4500,  '#324228'], [5000,  '#fafaff']
     ];
 
     const hexToRgb = (hex) => {
