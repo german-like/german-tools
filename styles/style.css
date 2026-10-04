@@ -162,3 +162,36 @@ footer {
 .text-muted {
   color: var(--color-muted);
 }
+
+/* =========================
+   Responsive Layout
+   ========================= */
+
+@media (max-width: 768px) {
+
+  body {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto 1fr auto;
+  }
+
+  header {
+    padding: 1rem;
+    font-size: 1.2rem;
+  }
+
+  #side_bar {
+    width: 100%;
+    padding: 1rem;
+    border-right: none;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  main {
+    width: 100%;
+    padding: 1rem;
+  }
+
+  footer {
+    padding: 0.75rem;
+  }
+}
