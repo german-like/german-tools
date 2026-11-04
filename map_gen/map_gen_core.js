@@ -34,7 +34,7 @@ function run(e) {
 
     setTimeout(() => {
         const seedValue = document.getElementById('seed').value;
-        const oceanPercent = parseFloat(document.getElementById('seaLevel').value);
+        const seaLevel = parseFloat(document.getElementById('seaLevel').value);
         const rng = new Random(seedValue);
         const width = canvas.width;
         const height = canvas.height;
@@ -86,17 +86,7 @@ function run(e) {
         }
 
         // 正規化と描画
-        // 正規化
         normalize(grid);
-        // 海洋面積率から海面高度を算出
-        const seaLevel = calculateSeaLevel(
-            grid,
-            width,
-            height,
-            oceanPercent
-        );
-
-        // 描画
         draw(canvas, ctx, grid, seaLevel);
 
         if (msg) msg.style.display = 'none';
@@ -114,42 +104,6 @@ function normalize(grid) {
     for (let i = 0; i < grid.length; i++) {
         grid[i] = (grid[i] - min) / range;
     }
-}
-
-// 海洋面積率から海面高度を決定
-function calculateSeaLevel(grid, width, height, oceanPercent) {
-    const indices = Array.from(
-        { length: grid.length },
-        (_, i) => i
-    );
-
-    // 標高の低い順に並べる
-    indices.sort((a, b) => grid[a] - grid[b]);
-
-    // 球面上の各ピクセルの面積を考慮
-    let totalArea = 0;
-
-    for (let y = 0; y < height; y++) {
-        const lat = (1 - y) * Math.PI / height;
-        totalArea += Math.sin(lat) * width;
-    }
-
-    const targetArea = totalArea * oceanPercent / 100;
-    let accumulatedArea = 0;
-
-    for (const index of indices) {
-        const y = Math.floor(index / width);
-        const lat = (1 - y / height) * Math.PI;
-        const weight = Math.sin(lat);
-
-        accumulatedArea += weight;
-
-        if (accumulatedArea >= targetArea) {
-            return grid[index];
-        }
-    }
-
-    return 1;
 }
 
 /* =========================
