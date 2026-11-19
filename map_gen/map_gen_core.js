@@ -15,7 +15,7 @@ class Random {
     }
     next() {
         this.seed = (Math.imul(this.seed, 20077) + 12345) >>> 0;
-        return this.seed / 65536;
+        return this.seed / 4294967296;
     }
 }
 
