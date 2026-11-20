@@ -14,7 +14,7 @@ class Random {
         return Math.abs(hash);
     }
     next() {
-        this.seed = (Math.imul(this.seed, 20077) + 12345) >>> 0;
+        this.seed = (Math.imul(this.seed, 1664525) + 1013904223) >>> 0;
         return this.seed / 4294967296;
     }
 }
